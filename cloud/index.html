@@ -664,6 +664,7 @@ let currentPage = 'dashboard';
 let charts = {};
 let isSignupMode = false;
 
+
 // ===== AUTH =====
 async function checkSession() {
   const { data: { session } } = await supabase.auth.getSession();
@@ -681,36 +682,52 @@ async function checkSession() {
   }
 }
 
+// 3. Función mejorada de Login/Registro
 async function handleLogin(e) {
-  e.preventDefault();
-  const email = document.getElementById('loginEmail').value;
-  const password = document.getElementById('loginPassword').value;
-  const btn = document.getElementById('loginBtn');
-  const error = document.getElementById('loginError');
-  
-  btn.disabled = true;
-  btn.innerHTML = 'Cargando...';
-  error.style.display = 'none';
+    e.preventDefault();
+    
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const btn = document.querySelector('#loginForm .btn-primary');
+    const errorDiv = document.getElementById('loginError');
 
-  try {
-    if (isSignupMode) {
-      const { data, error: err } = await supabase.auth.signUp({ email, password });
-      if (err) throw err;
-      if (data.user) {
-        alert('✅ Cuenta creada. Revisa tu email para confirmar (o inicia sesión si la confirmación está desactivada).');
-      }
-    } else {
-      const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
-      if (err) throw err;
+    // Estado de carga
+    btn.disabled = true;
+    btn.textContent = 'Cargando...';
+    errorDiv.style.display = 'none';
+
+    try {
+        if (isSignupMode) {
+            // === MODO CREAR CUENTA ===
+            const { data, error } = await supabase.auth.signUp({
+                email: email,
+                password: password
+            });
+            if (error) throw error;
+            
+            alert('✅ ¡Cuenta creada! Por favor, revisa tu correo electrónico para confirmar y luego inicia sesión.');
+            toggleAuthMode(); // Vuelve al modo Login
+            document.getElementById('loginForm').reset();
+
+        } else {
+            // === MODO INICIAR SESIÓN ===
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+            if (error) throw error;
+            
+            // Si llega aquí, el login fue exitoso
+            location.reload(); // Recarga la página para entrar a la app
+        }
+    } catch (error) {
+        errorDiv.textContent = '❌ ' + error.message;
+        errorDiv.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        // Restaura el texto del botón
+        btn.textContent = isSignupMode ? '📝 Crear Cuenta' : 'Iniciar Sesión';
     }
-    await checkSession();
-  } catch (err) {
-    error.textContent = '❌ ' + err.message;
-    error.style.display = 'block';
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = isSignupMode ? 'Crear cuenta' : 'Iniciar Sesión';
-  }
 }
 
 async function handleLogout() {
@@ -719,11 +736,27 @@ async function handleLogout() {
   checkSession();
 }
 
+// 2. Función que hace funcionar el botón "Crear cuenta nueva"
 function toggleAuthMode() {
-  isSignupMode = !isSignupMode;
-  document.getElementById('signupSection').style.display = isSignupMode ? 'block' : 'none';
-  document.querySelector('#loginForm .btn-primary').textContent = isSignupMode ? 'Crear cuenta' : 'Iniciar Sesión';
-  document.querySelector('.login-logo p').textContent = isSignupMode ? 'Regístrate gratis' : 'Gestión de Inventario en la Nube';
+    isSignupMode = !isSignupMode; // Alterna entre true y false
+    
+    const btn = document.querySelector('#loginForm .btn-primary');
+    const subtitle = document.querySelector('.login-logo p');
+    const signupSection = document.getElementById('signupSection');
+
+    if (isSignupMode) {
+        // CAMBIOS VISUALES PARA MODO REGISTRO
+        btn.textContent = '📝 Crear Cuenta';
+        btn.style.background = '#10b981'; // Color verde
+        subtitle.textContent = 'Crea tu cuenta gratuita para guardar en la nube';
+        if(signupSection) signupSection.style.display = 'block';
+    } else {
+        // CAMBIOS VISUALES PARA MODO LOGIN
+        btn.textContent = 'Iniciar Sesión';
+        btn.style.background = '#3b82f6'; // Color azul original
+        subtitle.textContent = 'Gestión de Inventario en la Nube';
+        if(signupSection) signupSection.style.display = 'none';
+    }
 }
 
 // ===== NAVIGATION =====
