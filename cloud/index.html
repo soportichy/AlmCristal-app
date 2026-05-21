@@ -666,31 +666,29 @@ let isSignupMode = false;
 
 // 2. Función que hace funcionar el botón "Crear cuenta nueva"
 function toggleAuthMode() {
-     alert('✅ ¡El botón funciona!'); // Si ves esta alerta, el onclick está bien
-    // ... resto del código
-    console.log('🔄 toggleAuthMode ejecutado'); // Para debug
+    console.log('🔄 toggleAuthMode ejecutado');
     
     isSignupMode = !isSignupMode;
     
-    // Selecciona los elementos correctos por ID (más seguro)
-    const loginBtn = document.getElementById('loginBtn'); // El botón de submit
-    const toggleBtn = document.getElementById('toggleAuthBtn'); // El botón "Crear cuenta" (nuevo ID)
-    const subtitle = document.getElementById('loginSubtitle');
-    const signupInfo = document.getElementById('signupInfo');
+    // Elementos que SÍ existen en tu HTML
+    const loginBtn = document.getElementById('loginBtn');
+    const toggleBtn = document.getElementById('toggleAuthBtn');
+    const subtitle = document.querySelector('.login-logo p'); // ✅ Selecciona por clase
+    const signupSection = document.getElementById('signupSection'); // ✅ ID correcto
 
     if (isSignupMode) {
         // MODO REGISTRO
         if(loginBtn) loginBtn.textContent = '📝 Crear Cuenta';
-        if(loginBtn) loginBtn.style.background = '#10b981'; // Verde
+        if(loginBtn) loginBtn.style.background = '#10b981';
         if(subtitle) subtitle.textContent = 'Crea tu cuenta gratuita para guardar en la nube';
-        if(signupInfo) signupInfo.style.display = 'block';
+        if(signupSection) signupSection.style.display = 'block';
         if(toggleBtn) toggleBtn.textContent = '🔙 Ya tengo cuenta';
     } else {
         // MODO LOGIN
         if(loginBtn) loginBtn.textContent = 'Iniciar Sesión';
-        if(loginBtn) loginBtn.style.background = '#3b82f6'; // Azul original
+        if(loginBtn) loginBtn.style.background = '#3b82f6';
         if(subtitle) subtitle.textContent = 'Gestión de Inventario en la Nube';
-        if(signupInfo) signupInfo.style.display = 'none';
+        if(signupSection) signupSection.style.display = 'none';
         if(toggleBtn) toggleBtn.textContent = '🔐 Crear cuenta nueva';
     }
 }
