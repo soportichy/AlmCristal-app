@@ -204,7 +204,7 @@
       <button type="submit" class="btn btn-primary" id="loginBtn">Iniciar Sesión</button>
     </form>
     <div style="text-align:center;margin:16px 0;color:var(--text-muted)">o</div>
-    <button class="btn btn-outline" style="width:100%" onclick="toggleAuthMode()">🔐 Crear cuenta nueva</button>
+    <button id="toggleAuthBtn" class="btn btn-outline" style="width:100%" onclick="toggleAuthMode()">🔐 Crear cuenta nueva</button>
     <div class="demo-credentials" id="signupSection" style="display:none">
       <strong>Registro:</strong><br>
       Ingresa tu email y contraseña para crear una cuenta gratuita.<br>
@@ -664,24 +664,36 @@ let currentPage = 'dashboard';
 let charts = {};
 let isSignupMode = false;
 
+// 2. Función que hace funcionar el botón "Crear cuenta nueva"
+function toggleAuthMode() {
+     alert('✅ ¡El botón funciona!'); // Si ves esta alerta, el onclick está bien
+    // ... resto del código
+    console.log('🔄 toggleAuthMode ejecutado'); // Para debug
+    
+    isSignupMode = !isSignupMode;
+    
+    // Selecciona los elementos correctos por ID (más seguro)
+    const loginBtn = document.getElementById('loginBtn'); // El botón de submit
+    const toggleBtn = document.getElementById('toggleAuthBtn'); // El botón "Crear cuenta" (nuevo ID)
+    const subtitle = document.getElementById('loginSubtitle');
+    const signupInfo = document.getElementById('signupInfo');
 
-// ===== AUTH =====
-async function checkSession() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.user) {
-    currentUser = session.user;
-    document.getElementById('userName').textContent = session.user.email?.split('@')[0] || 'Usuario';
-    document.getElementById('userAvatar').textContent = (session.user.email?.[0] || 'U').toUpperCase();
-    document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('appPage').style.display = 'block';
-    updateAlertBadge();
-    navigate('dashboard');
-  } else {
-    document.getElementById('loginPage').style.display = 'flex';
-    document.getElementById('appPage').style.display = 'none';
-  }
+    if (isSignupMode) {
+        // MODO REGISTRO
+        if(loginBtn) loginBtn.textContent = '📝 Crear Cuenta';
+        if(loginBtn) loginBtn.style.background = '#10b981'; // Verde
+        if(subtitle) subtitle.textContent = 'Crea tu cuenta gratuita para guardar en la nube';
+        if(signupInfo) signupInfo.style.display = 'block';
+        if(toggleBtn) toggleBtn.textContent = '🔙 Ya tengo cuenta';
+    } else {
+        // MODO LOGIN
+        if(loginBtn) loginBtn.textContent = 'Iniciar Sesión';
+        if(loginBtn) loginBtn.style.background = '#3b82f6'; // Azul original
+        if(subtitle) subtitle.textContent = 'Gestión de Inventario en la Nube';
+        if(signupInfo) signupInfo.style.display = 'none';
+        if(toggleBtn) toggleBtn.textContent = '🔐 Crear cuenta nueva';
+    }
 }
-
 // 3. Función mejorada de Login/Registro
 async function handleLogin(e) {
     e.preventDefault();
@@ -729,36 +741,28 @@ async function handleLogin(e) {
         btn.textContent = isSignupMode ? '📝 Crear Cuenta' : 'Iniciar Sesión';
     }
 }
+// ===== AUTH =====
+async function checkSession() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user) {
+    currentUser = session.user;
+    document.getElementById('userName').textContent = session.user.email?.split('@')[0] || 'Usuario';
+    document.getElementById('userAvatar').textContent = (session.user.email?.[0] || 'U').toUpperCase();
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('appPage').style.display = 'block';
+    updateAlertBadge();
+    navigate('dashboard');
+  } else {
+    document.getElementById('loginPage').style.display = 'flex';
+    document.getElementById('appPage').style.display = 'none';
+  }
+}
 
 async function handleLogout() {
   await supabase.auth.signOut();
   currentUser = null;
   checkSession();
 }
-
-// 2. Función que hace funcionar el botón "Crear cuenta nueva"
-function toggleAuthMode() {
-    isSignupMode = !isSignupMode; // Alterna entre true y false
-    
-    const btn = document.querySelector('#loginForm .btn-primary');
-    const subtitle = document.querySelector('.login-logo p');
-    const signupSection = document.getElementById('signupSection');
-
-    if (isSignupMode) {
-        // CAMBIOS VISUALES PARA MODO REGISTRO
-        btn.textContent = '📝 Crear Cuenta';
-        btn.style.background = '#10b981'; // Color verde
-        subtitle.textContent = 'Crea tu cuenta gratuita para guardar en la nube';
-        if(signupSection) signupSection.style.display = 'block';
-    } else {
-        // CAMBIOS VISUALES PARA MODO LOGIN
-        btn.textContent = 'Iniciar Sesión';
-        btn.style.background = '#3b82f6'; // Color azul original
-        subtitle.textContent = 'Gestión de Inventario en la Nube';
-        if(signupSection) signupSection.style.display = 'none';
-    }
-}
-
 // ===== NAVIGATION =====
 function navigate(page) {
   currentPage = page;
