@@ -483,19 +483,28 @@ function toggleAuthMode() {
 // ===== LOGIN / REGISTER LOGIC =====
 async function handleLogin(e) {
   e.preventDefault();
+  
   const email = document.getElementById('loginEmail').value;
   const password = document.getElementById('loginPassword').value;
   const companyName = document.getElementById('loginCompany').value.trim();
   const btn = document.getElementById('loginBtn');
   const errorDiv = document.getElementById('loginError');
 
+  // 🔴 VALIDACIÓN MANUAL: Solo en modo registro, verificar que companyName no esté vacío
+  if (isSignupMode && !companyName) {
+    errorDiv.textContent = '❌ Ingresa el nombre de tu empresa';
+    errorDiv.style.display = 'block';
+    return; // Detener la ejecución, no continuar con el login/registro
+  }
+
+  // Estado de carga
   btn.disabled = true;
   btn.textContent = 'Cargando...';
   errorDiv.style.display = 'none';
 
   try {
     if (isSignupMode) {
-      // === MODO REGISTRO ===
+      // === MODO CREAR CUENTA ===
       if (!companyName) throw new Error("Ingresa el nombre de tu empresa.");
       
       // 1. Buscar si la empresa existe
@@ -504,7 +513,7 @@ async function handleLogin(e) {
 
       let companyId;
       if (companies && companies.length > 0) {
-        companyId = companies[0].id; // Empresa existe
+        companyId = companies[0].id;
       } else {
         // 2. Crear empresa nueva
         const { data: newComp, error: createErr } = await sb.from('companies').insert([{ name: companyName }]).select();
@@ -515,7 +524,7 @@ async function handleLogin(e) {
       // 3. Crear usuario
       const { data: authData, error: authErr } = await sb.auth.signUp({
         email, password,
-        options: { data: { company_id: companyId } } // Guardar ID en metadata
+        options: { data: { company_id: companyId } }
       });
       if (authErr) throw authErr;
 
@@ -524,11 +533,10 @@ async function handleLogin(e) {
       document.getElementById('loginForm').reset();
 
     } else {
-      // === MODO LOGIN ===
+      // === MODO INICIAR SESIÓN ===
       const { data, error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
       
-      // Obtener ID de empresa del usuario logueado
       const meta = data.user.user_metadata;
       if (!meta || !meta.company_id) throw new Error("Este usuario no tiene una empresa asignada.");
       
