@@ -806,7 +806,7 @@ async function renderMovements() {
   }
 }
 
-// ===== ALERTS =====
+// ===== ALERTS ======
 async function updateAlertBadge() {
   const uid=currentUser?.id;
   const { data: products } = await sb.from('products').select('stock,min_stock').or(`user_id.eq.${uid},user_id.is.null`);
