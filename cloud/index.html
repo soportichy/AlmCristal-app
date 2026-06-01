@@ -513,29 +513,33 @@ function toggleAuthMode() {
 // ===== NUEVA FUNCIÓN: Cargar empresas en dropdown =====
 async function loadCompaniesDropdown() {
   const select = document.getElementById('companySelect');
-  select.innerHTML = '<option value="">🏢 Crear nueva empresa</option>';
+  // 1. Opción por defecto
+  select.innerHTML = '<option value="">🏢 Selecciona una empresa...</option>';
+  // 2. Opción para crear nueva (con valor 'new' para detectarla fácil)
+  select.innerHTML += '<option value="new">➕ Crear nueva empresa</option>';
   
   const { data: companies, error } = await sb.from('companies').select('id, name').order('name');
   
-  if (error) {
-    console.error('Error cargando empresas:', error);
-    select.innerHTML = '<option value="">Error al cargar</option>';
-    return;
-  }
-  
-  if (companies && companies.length > 0) {
+  if (!error && companies) {
     companies.forEach(c => {
       select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
     });
   }
 }
 
-// ===== NUEVA FUNCIÓN: Toggle input según selección =====
+// ===== NUEVA FUNCIÓN: Mostrar campo solo si elige "new" =====
 function toggleCompanyInput(value) {
   const input = document.getElementById('loginCompany');
-  input.style.display = value === '' ? 'block' : 'none';
-  if (value !== '') input.value = '';
-  input.required = value === '';
+  // Solo mostramos el input si el valor es exactamente 'new'
+  if (value === 'new') {
+    input.style.display = 'block';
+    input.required = true;
+    input.focus();
+  } else {
+    input.style.display = 'none';
+    input.required = false;
+    input.value = ''; // Limpiar si cambia de opinión
+  }
 }
 
 // ===== LOGIN / REGISTER LOGIC =====
