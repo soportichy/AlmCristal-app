@@ -34,14 +34,16 @@
   .form-group label { display:block; font-size:13px; font-weight:600; color:var(--text-secondary); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
   .form-input { width:100%; padding:12px 16px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-primary); font-size:15px; transition:var(--transition); outline:none; }
   .form-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-light); }
+  .form-input:disabled { opacity:0.6; cursor:not-allowed; }
   .btn { padding:12px 24px; border:none; border-radius:var(--radius-sm); font-size:14px; font-weight:600; cursor:pointer; transition:var(--transition); display:inline-flex; align-items:center; gap:8px; justify-content:center; }
+  .btn:disabled { opacity:0.6; cursor:not-allowed; }
   .btn-primary { background:var(--accent); color:white; width:100%; }
-  .btn-primary:hover { background:var(--accent-hover); transform:translateY(-1px); }
-  .btn-success { background:var(--success); color:white; } .btn-success:hover { background:#059669; }
-  .btn-danger { background:var(--danger); color:white; } .btn-danger:hover { background:#dc2626; }
-  .btn-warning { background:var(--warning); color:#000; } .btn-warning:hover { background:#d97706; }
+  .btn-primary:hover:not(:disabled) { background:var(--accent-hover); transform:translateY(-1px); }
+  .btn-success { background:var(--success); color:white; } .btn-success:hover:not(:disabled) { background:#059669; }
+  .btn-danger { background:var(--danger); color:white; } .btn-danger:hover:not(:disabled) { background:#dc2626; }
+  .btn-warning { background:var(--warning); color:#000; } .btn-warning:hover:not(:disabled) { background:#d97706; }
   .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text-primary); }
-  .btn-outline:hover { background:var(--bg-input); }
+  .btn-outline:hover:not(:disabled) { background:var(--bg-input); }
   .btn-sm { padding:8px 14px; font-size:13px; } .btn-xs { padding:5px 10px; font-size:12px; border-radius:6px; }
   .login-error { background:var(--danger-light); color:var(--danger); padding:10px 14px; border-radius:var(--radius-sm); font-size:13px; margin-bottom:16px; display:none; }
   .demo-credentials { margin-top:24px; padding:16px; background:var(--bg-input); border-radius:var(--radius-sm); font-size:13px; color:var(--text-secondary); }
@@ -132,11 +134,6 @@
   .modal-body { padding:24px; }
   .modal-footer { padding:16px 24px; border-top:1px solid var(--border); display:flex; gap:12px; justify-content:flex-end; }
   .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-  .form-group { margin-bottom:16px; }
-  .form-group label { display:block; font-size:13px; font-weight:600; color:var(--text-secondary); margin-bottom:6px; }
-  .form-group input, .form-group select, .form-group textarea { width:100%; padding:10px 14px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-primary); font-size:14px; outline:none; font-family:inherit; }
-  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-light); }
-  .form-group select { cursor:pointer; }
   .image-upload { border:2px dashed var(--border); border-radius:var(--radius-sm); padding:24px; text-align:center; cursor:pointer; transition:var(--transition); }
   .image-upload:hover { border-color:var(--accent); }
   .image-upload .icon { font-size:32px; color:var(--text-muted); margin-bottom:8px; }
@@ -178,9 +175,6 @@
   @media (max-width:768px) { .sidebar-overlay.active { display:block; } }
   .page { display:none; } .page.active { display:block; animation:fadeIn 0.3s ease; }
   @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-  .status-pending { background:var(--warning-light); color:var(--warning); padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
-  .status-approved { background:var(--success-light); color:var(--success); padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
-  .status-rejected { background:var(--danger-light); color:var(--danger); padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
 </style>
 </head>
 <body>
@@ -203,17 +197,23 @@
         <label>Contraseña</label>
         <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" minlength="6" required>
       </div>
+      
+      <!-- CAMBIO: Dropdown de empresas + input opcional -->
       <div class="form-group" id="companyFieldGroup" style="display:none">
-        <label>Nombre de tu Empresa</label>
-        <input type="text" id="loginCompany" class="form-input" placeholder="Ej: Mi Tienda S.A.">
+        <label>Selecciona o crea una empresa</label>
+        <select id="companySelect" class="form-input" onchange="toggleCompanyInput(this.value)">
+          <option value="">Cargando empresas...</option>
+        </select>
+        <input type="text" id="loginCompany" class="form-input" placeholder="Nombre de la nueva empresa" style="margin-top:8px; display:none;">
       </div>
+
       <button type="submit" class="btn btn-primary" id="loginBtn">Iniciar Sesión</button>
     </form>
     <div style="text-align:center;margin:16px 0;color:var(--text-muted)">o</div>
     <button id="toggleAuthBtn" class="btn btn-outline" style="width:100%" onclick="toggleAuthMode()">🔐 Crear cuenta nueva</button>
     <div class="demo-credentials" id="signupSection" style="display:none">
       <strong>Registro:</strong><br>
-      Crea una cuenta y únete a una empresa existente o crea una nueva.
+      Selecciona una empresa existente o crea una nueva.
     </div>
   </div>
 </div>
@@ -396,6 +396,7 @@
   </div>
 </div>
 
+<!-- MODALS (Product, Category, QR) - Same structure as before -->
 <!-- PRODUCT MODAL -->
 <div class="modal-overlay" id="productModal">
   <div class="modal">
@@ -470,14 +471,6 @@
   </div>
 </div>
 
-<!-- DETAIL MODAL -->
-<div class="modal-overlay" id="detailModal">
-  <div class="modal" style="max-width:440px">
-    <div class="modal-header"><h2>Detalle del Producto</h2><button class="modal-close" onclick="closeModal('detailModal')">&times;</button></div>
-    <div class="modal-body" id="detailContent"></div>
-  </div>
-</div>
-
 <script>
 // ===== SUPABASE CONFIG =====
 const SUPABASE_URL = 'https://jrmldubyrshxkkglktyv.supabase.co';
@@ -506,7 +499,7 @@ function toggleAuthMode() {
     if(loginBtn) { loginBtn.textContent = '📝 Crear Cuenta'; loginBtn.style.background = '#10b981'; }
     if(subtitle) subtitle.textContent = 'Únete a una empresa o crea una nueva';
     if(signupSection) signupSection.style.display = 'block';
-    if(companyField) companyField.style.display = 'block';
+    if(companyField) { companyField.style.display = 'block'; loadCompaniesDropdown(); }
     if(toggleBtn) toggleBtn.textContent = '🔙 Ya tengo cuenta';
   } else {
     if(loginBtn) { loginBtn.textContent = 'Iniciar Sesión'; loginBtn.style.background = '#3b82f6'; }
@@ -517,21 +510,41 @@ function toggleAuthMode() {
   }
 }
 
+// ===== NUEVA FUNCIÓN: Cargar empresas en dropdown =====
+async function loadCompaniesDropdown() {
+  const select = document.getElementById('companySelect');
+  select.innerHTML = '<option value="">🏢 Crear nueva empresa</option>';
+  
+  const { data: companies, error } = await sb.from('companies').select('id, name').order('name');
+  
+  if (error) {
+    console.error('Error cargando empresas:', error);
+    select.innerHTML = '<option value="">Error al cargar</option>';
+    return;
+  }
+  
+  if (companies && companies.length > 0) {
+    companies.forEach(c => {
+      select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+    });
+  }
+}
+
+// ===== NUEVA FUNCIÓN: Toggle input según selección =====
+function toggleCompanyInput(value) {
+  const input = document.getElementById('loginCompany');
+  input.style.display = value === '' ? 'block' : 'none';
+  if (value !== '') input.value = '';
+  input.required = value === '';
+}
+
 // ===== LOGIN / REGISTER LOGIC =====
 async function handleLogin(e) {
   e.preventDefault();
   const email = document.getElementById('loginEmail').value;
   const password = document.getElementById('loginPassword').value;
-  const companyName = document.getElementById('loginCompany').value.trim();
   const btn = document.getElementById('loginBtn');
   const errorDiv = document.getElementById('loginError');
-
-  // Validación manual solo en modo registro
-  if (isSignupMode && !companyName) {
-    errorDiv.textContent = '❌ Ingresa el nombre de tu empresa';
-    errorDiv.style.display = 'block';
-    return;
-  }
 
   btn.disabled = true;
   btn.textContent = 'Cargando...';
@@ -540,28 +553,33 @@ async function handleLogin(e) {
   try {
     if (isSignupMode) {
       // === MODO CREAR CUENTA ===
-      let { data: companies, error: compErr } = await sb.from('companies').select('id').eq('name', companyName);
-      if (compErr) throw compErr;
+      const companyId = document.getElementById('companySelect').value;
+      const newCompanyName = document.getElementById('loginCompany').value.trim();
 
-      let companyId;
-      if (companies && companies.length > 0) {
-        companyId = companies[0].id;
-      } else {
-        const { data: newComp, error: createErr } = await sb.from('companies').insert([{ name: companyName }]).select();
+      let finalCompanyId;
+      
+      if (companyId) {
+        // Usuario seleccionó empresa existente
+        finalCompanyId = companyId;
+      } else if (newCompanyName) {
+        // Usuario quiere crear nueva
+        const { data: newComp, error: createErr } = await sb.from('companies').insert([{ name: newCompanyName }]).select();
         if (createErr) throw createErr;
-        companyId = newComp[0].id;
+        finalCompanyId = newComp[0].id;
+      } else {
+        throw new Error("Selecciona una empresa existente o escribe un nombre para crear una nueva.");
       }
 
       const { data: authData, error: authErr } = await sb.auth.signUp({
         email, password,
-        options: { data: { company_id: companyId, status: 'pending' } }
+        options: { data: { company_id: finalCompanyId, status: 'pending', role: 'member' } }
       });
       if (authErr) throw authErr;
 
       if (authData.user) {
         await sb.from('company_memberships').insert([{
           user_id: authData.user.id,
-          company_id: companyId,
+          company_id: finalCompanyId,
           status: 'pending',
           role: 'member'
         }]);
@@ -644,7 +662,6 @@ function navigate(page) {
   const titles = { dashboard:'Dashboard', products:'Productos', categories:'Categorías', movements:'Movimientos', reports:'Reportes', alerts:'Alertas de Stock', scanner:'Escáner QR', admin:'Panel de Administración' };
   document.getElementById('pageTitle').textContent = titles[page] || page;
   
-  // Verificar permisos de admin
   if (page === 'admin' && currentUserRole !== 'admin') {
     alert('❌ Solo los administradores pueden acceder al panel de administración');
     navigate('dashboard');
@@ -925,7 +942,7 @@ async function renderMovements() {
   if (!filtered.length) { tbody.innerHTML=''; empty.style.display='block'; tbody.parentElement.parentElement.style.display='none'; }
   else {
     empty.style.display='none'; tbody.parentElement.parentElement.style.display='';
-    tbody.innerHTML=filtered.map(m=>`<tr><td>${formatDate(m.date)}</td><td><span class="move-type-badge ${m.type}">${m.type==='entrada'?'📥 Entrada':' Salida'}</span></td><td>${m.products?.name||'<em>Eliminado</em>'}</td><td><strong>${m.type==='entrada'?'+':'-'}${m.qty}</strong></td><td>${m.reason||'-'}</td><td>${m.stock_after}</td></tr>`).join('');
+    tbody.innerHTML=filtered.map(m=>`<tr><td>${formatDate(m.date)}</td><td><span class="move-type-badge ${m.type}">${m.type==='entrada'?'📥 Entrada':'📤 Salida'}</span></td><td>${m.products?.name||'<em>Eliminado</em>'}</td><td><strong>${m.type==='entrada'?'+':'-'}${m.qty}</strong></td><td>${m.reason||'-'}</td><td>${m.stock_after}</td></tr>`).join('');
   }
 }
 
