@@ -178,6 +178,9 @@
   @media (max-width:768px) { .sidebar-overlay.active { display:block; } }
   .page { display:none; } .page.active { display:block; animation:fadeIn 0.3s ease; }
   @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  .status-pending { background:var(--warning-light); color:var(--warning); padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+  .status-approved { background:var(--success-light); color:var(--success); padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+  .status-rejected { background:var(--danger-light); color:var(--danger); padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
 </style>
 </head>
 <body>
@@ -200,7 +203,6 @@
         <label>Contraseña</label>
         <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" minlength="6" required>
       </div>
-      <!-- CAMPO NUEVO: NOMBRE DE LA EMPRESA -->
       <div class="form-group" id="companyFieldGroup" style="display:none">
         <label>Nombre de tu Empresa</label>
         <input type="text" id="loginCompany" class="form-input" placeholder="Ej: Mi Tienda S.A.">
@@ -242,13 +244,17 @@
           <div class="nav-section-title">Herramientas</div>
           <div class="nav-item" onclick="navigate('scanner')" data-page="scanner"><span class="nav-icon">📷</span> Escáner QR</div>
         </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Administración</div>
+          <div class="nav-item" onclick="navigate('admin')" data-page="admin"><span class="nav-icon">⚙️</span> Admin Panel</div>
+        </div>
       </nav>
       <div class="sidebar-footer">
         <div class="user-info">
           <div class="user-avatar" id="userAvatar">U</div>
           <div class="user-details">
             <div class="user-name" id="userName">Usuario</div>
-            <div class="user-role">Conectado</div>
+            <div class="user-role" id="userRole">Conectado</div>
           </div>
           <button class="btn-logout" onclick="handleLogout()">🚪</button>
         </div>
@@ -355,6 +361,36 @@
             <div class="card"><div class="card-header"><h3>📱 Códigos QR</h3></div><div class="card-body"><div id="productQrList"></div></div></div>
           </div>
         </div>
+        <!-- ADMIN PANEL -->
+        <div id="page-admin" class="page">
+          <div class="filters-bar">
+            <h2 style="margin:0">🏢 Gestión de Empresas y Usuarios</h2>
+          </div>
+          <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:24px">
+            <div class="stat-card blue"><div class="stat-icon">🏢</div><div class="stat-label">Total Empresas</div><div class="stat-value" id="adminTotalCompanies">0</div></div>
+            <div class="stat-card yellow"><div class="stat-icon">⏳</div><div class="stat-label">Usuarios Pendientes</div><div class="stat-value" id="adminPendingUsers">0</div></div>
+            <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-label">Usuarios Activos</div><div class="stat-value" id="adminActiveUsers">0</div></div>
+          </div>
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header"><h3>📋 Solicitudes Pendientes</h3></div>
+            <div class="card-body">
+              <div class="table-container">
+                <table><thead><tr><th>Usuario</th><th>Empresa</th><th>Fecha Registro</th><th>Acciones</th></tr></thead>
+                <tbody id="pendingUsersTable"></tbody></table>
+              </div>
+              <div id="noPendingUsers" class="empty-state" style="display:none"><div class="icon">✅</div><h3>No hay solicitudes pendientes</h3></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>🏢 Todas las Empresas</h3></div>
+            <div class="card-body">
+              <div class="table-container">
+                <table><thead><tr><th>Empresa</th><th>Usuarios</th><th>Fecha Creación</th><th>Estado</th></tr></thead>
+                <tbody id="allCompaniesTable"></tbody></table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -451,7 +487,8 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ===== VARIABLES GLOBALES =====
 let currentUser = null;
-let currentCompany = null; // ID de la empresa activa
+let currentCompany = null;
+let currentUserRole = 'member';
 let currentPage = 'dashboard';
 let charts = {};
 let isSignupMode = false;
@@ -469,13 +506,13 @@ function toggleAuthMode() {
     if(loginBtn) { loginBtn.textContent = '📝 Crear Cuenta'; loginBtn.style.background = '#10b981'; }
     if(subtitle) subtitle.textContent = 'Únete a una empresa o crea una nueva';
     if(signupSection) signupSection.style.display = 'block';
-    if(companyField) companyField.style.display = 'block'; // Mostrar campo empresa
+    if(companyField) companyField.style.display = 'block';
     if(toggleBtn) toggleBtn.textContent = '🔙 Ya tengo cuenta';
   } else {
     if(loginBtn) { loginBtn.textContent = 'Iniciar Sesión'; loginBtn.style.background = '#3b82f6'; }
     if(subtitle) subtitle.textContent = 'Gestión de Inventario SaaS';
     if(signupSection) signupSection.style.display = 'none';
-    if(companyField) companyField.style.display = 'none'; // Ocultar campo empresa
+    if(companyField) companyField.style.display = 'none';
     if(toggleBtn) toggleBtn.textContent = '🔐 Crear cuenta nueva';
   }
 }
@@ -483,21 +520,19 @@ function toggleAuthMode() {
 // ===== LOGIN / REGISTER LOGIC =====
 async function handleLogin(e) {
   e.preventDefault();
-  
   const email = document.getElementById('loginEmail').value;
   const password = document.getElementById('loginPassword').value;
   const companyName = document.getElementById('loginCompany').value.trim();
   const btn = document.getElementById('loginBtn');
   const errorDiv = document.getElementById('loginError');
 
-  // 🔴 VALIDACIÓN MANUAL: Solo en modo registro, verificar que companyName no esté vacío
+  // Validación manual solo en modo registro
   if (isSignupMode && !companyName) {
     errorDiv.textContent = '❌ Ingresa el nombre de tu empresa';
     errorDiv.style.display = 'block';
-    return; // Detener la ejecución, no continuar con el login/registro
+    return;
   }
 
-  // Estado de carga
   btn.disabled = true;
   btn.textContent = 'Cargando...';
   errorDiv.style.display = 'none';
@@ -505,9 +540,6 @@ async function handleLogin(e) {
   try {
     if (isSignupMode) {
       // === MODO CREAR CUENTA ===
-      if (!companyName) throw new Error("Ingresa el nombre de tu empresa.");
-      
-      // 1. Buscar si la empresa existe
       let { data: companies, error: compErr } = await sb.from('companies').select('id').eq('name', companyName);
       if (compErr) throw compErr;
 
@@ -515,20 +547,27 @@ async function handleLogin(e) {
       if (companies && companies.length > 0) {
         companyId = companies[0].id;
       } else {
-        // 2. Crear empresa nueva
         const { data: newComp, error: createErr } = await sb.from('companies').insert([{ name: companyName }]).select();
         if (createErr) throw createErr;
         companyId = newComp[0].id;
       }
 
-      // 3. Crear usuario
       const { data: authData, error: authErr } = await sb.auth.signUp({
         email, password,
-        options: { data: { company_id: companyId } }
+        options: { data: { company_id: companyId, status: 'pending' } }
       });
       if (authErr) throw authErr;
 
-      alert('✅ Cuenta creada. Revisa tu email para confirmar.');
+      if (authData.user) {
+        await sb.from('company_memberships').insert([{
+          user_id: authData.user.id,
+          company_id: companyId,
+          status: 'pending',
+          role: 'member'
+        }]);
+      }
+
+      alert('✅ Cuenta creada. Un administrador debe aprobar tu acceso.');
       toggleAuthMode();
       document.getElementById('loginForm').reset();
 
@@ -541,6 +580,7 @@ async function handleLogin(e) {
       if (!meta || !meta.company_id) throw new Error("Este usuario no tiene una empresa asignada.");
       
       currentCompany = meta.company_id;
+      currentUserRole = meta.role || 'member';
       await checkSession();
     }
   } catch (err) {
@@ -558,21 +598,22 @@ async function checkSession() {
     currentUser = session.user;
     const meta = session.user.user_metadata;
     
-    // Si no hay empresa en sesión (ej: refresh), intentar recuperar
     if (!currentCompany && meta?.company_id) {
       currentCompany = meta.company_id;
     }
+    if (!currentUserRole && meta?.role) {
+      currentUserRole = meta.role;
+    }
     
     if (!currentCompany) {
-      // Fallback si no hay empresa
       document.getElementById('loginError').textContent = 'Error: Usuario sin empresa. Contacta soporte.';
       document.getElementById('loginError').style.display = 'block';
       return;
     }
 
-    // Mostrar nombre de empresa (opcional, requeriría otra query)
-    document.getElementById('companyDisplay').textContent = 'Empresa ID: ' + currentCompany.substring(0,8) + '...';
+    document.getElementById('companyDisplay').textContent = currentCompany.substring(0,8) + '...';
     document.getElementById('userName').textContent = session.user.email?.split('@')[0] || 'Usuario';
+    document.getElementById('userRole').textContent = currentUserRole === 'admin' ? 'Administrador' : 'Miembro';
     document.getElementById('userAvatar').textContent = (session.user.email?.[0] || 'U').toUpperCase();
     
     document.getElementById('loginPage').style.display = 'none';
@@ -589,6 +630,7 @@ async function handleLogout() {
   await sb.auth.signOut();
   currentUser = null;
   currentCompany = null;
+  currentUserRole = 'member';
   checkSession();
 }
 
@@ -599,8 +641,16 @@ function navigate(page) {
   document.getElementById('page-' + page).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
-  const titles = { dashboard:'Dashboard', products:'Productos', categories:'Categorías', movements:'Movimientos', reports:'Reportes', alerts:'Alertas de Stock', scanner:'Escáner QR' };
+  const titles = { dashboard:'Dashboard', products:'Productos', categories:'Categorías', movements:'Movimientos', reports:'Reportes', alerts:'Alertas de Stock', scanner:'Escáner QR', admin:'Panel de Administración' };
   document.getElementById('pageTitle').textContent = titles[page] || page;
+  
+  // Verificar permisos de admin
+  if (page === 'admin' && currentUserRole !== 'admin') {
+    alert('❌ Solo los administradores pueden acceder al panel de administración');
+    navigate('dashboard');
+    return;
+  }
+
   switch(page) {
     case 'dashboard': renderDashboard(); break;
     case 'products': renderProducts(); break;
@@ -609,6 +659,7 @@ function navigate(page) {
     case 'reports': renderReports(); break;
     case 'alerts': renderAlerts(); break;
     case 'scanner': renderScannerPage(); break;
+    case 'admin': renderAdminPanel(); break;
   }
   if (window.innerWidth <= 768) {
     document.getElementById('sidebar').classList.remove('open');
@@ -634,7 +685,6 @@ function closeModal(id) { document.getElementById(id).classList.remove('active')
 
 // ===== DASHBOARD =====
 async function renderDashboard() {
-  // Filtrar por COMPANY_ID
   const { data: products } = await sb.from('products').select('*, categories(name,color)').eq('company_id', currentCompany);
   const { data: movements } = await sb.from('movements').select('*, products(name)').eq('company_id', currentCompany).order('created_at', { ascending: false }).limit(10);
   const { data: categories } = await sb.from('categories').select('*').eq('company_id', currentCompany);
@@ -744,7 +794,7 @@ async function saveProduct(e) {
     stock: parseInt(document.getElementById('productStock').value),
     min_stock: parseInt(document.getElementById('productMinStock').value),
     image_url: document.getElementById('imagePreview').querySelector('img')?.src||null,
-    company_id: currentCompany // <-- GUARDAR CON ID DE EMPRESA
+    company_id: currentCompany
   };
   try {
     if (id) { await sb.from('products').update(productData).eq('id',id); }
@@ -806,7 +856,7 @@ async function saveCategory(e) {
   e.preventDefault();
   const id=document.getElementById('categoryId').value;
   const selectedColor=document.querySelector('.color-option.selected');
-  const catData={ name:document.getElementById('categoryName').value.trim(), color:selectedColor?selectedColor.dataset.color:'#3b82f6', company_id: currentCompany }; // <-- GUARDAR CON ID DE EMPRESA
+  const catData={ name:document.getElementById('categoryName').value.trim(), color:selectedColor?selectedColor.dataset.color:'#3b82f6', company_id: currentCompany };
   try {
     if (id) { await sb.from('categories').update(catData).eq('id',id); }
     else { await sb.from('categories').insert([catData]); }
@@ -875,7 +925,7 @@ async function renderMovements() {
   if (!filtered.length) { tbody.innerHTML=''; empty.style.display='block'; tbody.parentElement.parentElement.style.display='none'; }
   else {
     empty.style.display='none'; tbody.parentElement.parentElement.style.display='';
-    tbody.innerHTML=filtered.map(m=>`<tr><td>${formatDate(m.date)}</td><td><span class="move-type-badge ${m.type}">${m.type==='entrada'?'📥 Entrada':'📤 Salida'}</span></td><td>${m.products?.name||'<em>Eliminado</em>'}</td><td><strong>${m.type==='entrada'?'+':'-'}${m.qty}</strong></td><td>${m.reason||'-'}</td><td>${m.stock_after}</td></tr>`).join('');
+    tbody.innerHTML=filtered.map(m=>`<tr><td>${formatDate(m.date)}</td><td><span class="move-type-badge ${m.type}">${m.type==='entrada'?'📥 Entrada':' Salida'}</span></td><td>${m.products?.name||'<em>Eliminado</em>'}</td><td><strong>${m.type==='entrada'?'+':'-'}${m.qty}</strong></td><td>${m.reason||'-'}</td><td>${m.stock_after}</td></tr>`).join('');
   }
 }
 
@@ -996,6 +1046,107 @@ function downloadCSV(csv,filename) {
 function handleGlobalSearch(value) {
   if (!value) return;
   if (currentPage==='products') { document.getElementById('productSearch').value=value; renderProducts(); }
+}
+
+// ===== ADMIN PANEL =====
+async function renderAdminPanel() {
+  await loadAdminStats();
+  await loadPendingUsers();
+  await loadAllCompanies();
+}
+
+async function loadAdminStats() {
+  const { count: companiesCount } = await sb.from('companies').select('*', { count: 'exact', head: true });
+  document.getElementById('adminTotalCompanies').textContent = companiesCount || 0;
+
+  const { data: memberships } = await sb.from('company_memberships').select('status');
+  const pending = memberships?.filter(m => m.status === 'pending').length || 0;
+  const approved = memberships?.filter(m => m.status === 'approved').length || 0;
+  
+  document.getElementById('adminPendingUsers').textContent = pending;
+  document.getElementById('adminActiveUsers').textContent = approved;
+}
+
+async function loadPendingUsers() {
+  const { data: pendingUsers } = await sb
+    .from('company_memberships')
+    .select(`id, status, created_at, user_id, company_id, companies ( name )`)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+
+  const tbody = document.getElementById('pendingUsersTable');
+  const noPending = document.getElementById('noPendingUsers');
+
+  if (!pendingUsers || pendingUsers.length === 0) {
+    tbody.innerHTML = '';
+    noPending.style.display = 'block';
+  } else {
+    noPending.style.display = 'none';
+    tbody.innerHTML = pendingUsers.map(m => `
+      <tr>
+        <td>${m.user_id?.substring(0,8)}...</td>
+        <td>${m.companies?.name || 'N/A'}</td>
+        <td>${formatDate(m.created_at)}</td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn btn-xs btn-success" onclick="approveUser('${m.id}', '${m.user_id}', '${m.company_id}')">✅ Aprobar</button>
+            <button class="btn btn-xs btn-danger" onclick="rejectUser('${m.id}')">❌ Rechazar</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+}
+
+async function loadAllCompanies() {
+  const { data: companies } = await sb
+    .from('companies')
+    .select(`id, name, created_at, memberships: company_memberships ( count )`)
+    .order('created_at', { ascending: false });
+
+  const tbody = document.getElementById('allCompaniesTable');
+
+  if (!companies || companies.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">No hay empresas registradas</td></tr>';
+  } else {
+    tbody.innerHTML = companies.map(c => `
+      <tr>
+        <td><strong>${c.name}</strong></td>
+        <td>${c.memberships?.[0]?.count || 0} usuarios</td>
+        <td>${formatDate(c.created_at)}</td>
+        <td><span class="badge badge-success">Activa</span></td>
+      </tr>
+    `).join('');
+  }
+}
+
+async function approveUser(membershipId, userId, companyId) {
+  if (!confirm('¿Aprobar este usuario?')) return;
+
+  try {
+    await sb.from('company_memberships')
+      .update({ status: 'approved', updated_at: new Date().toISOString() })
+      .eq('id', membershipId);
+
+    alert('✅ Usuario aprobado correctamente');
+    loadAdminStats();
+    loadPendingUsers();
+  } catch (err) {
+    alert('❌ Error: ' + err.message);
+  }
+}
+
+async function rejectUser(membershipId) {
+  if (!confirm('¿Rechazar este usuario? Será eliminado.')) return;
+
+  try {
+    await sb.from('company_memberships').delete().eq('id', membershipId);
+    alert('❌ Solicitud rechazada');
+    loadAdminStats();
+    loadPendingUsers();
+  } catch (err) {
+    alert('❌ Error: ' + err.message);
+  }
 }
 
 // ===== INIT =====
