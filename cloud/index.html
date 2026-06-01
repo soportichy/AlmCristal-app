@@ -198,13 +198,18 @@
         <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" minlength="6" required>
       </div>
       
-      <!-- CAMBIO: Dropdown de empresas + input opcional -->
-      <div class="form-group" id="companyFieldGroup" style="display:none">
-        <label>Selecciona o crea una empresa</label>
-        <select id="companySelect" class="form-input" onchange="toggleCompanyInput(this.value)">
-          <option value="">Cargando empresas...</option>
-        </select>
-        <input type="text" id="loginCompany" class="form-input" placeholder="Nombre de la nueva empresa" style="margin-top:8px; display:none;">
+      <!-- Campos de registro (solo visibles en modo registro) -->
+      <div id="signupFields" style="display:none; border-top:1px solid var(--border); padding-top:16px; margin-top:16px;">
+        <div class="form-group">
+          <label>¿A qué empresa te unes?</label>
+          <select id="companySelect" class="form-input" onchange="toggleCompanyInput(this.value)">
+            <option value="">⏳ Cargando empresas...</option>
+          </select>
+        </div>
+        <div class="form-group" id="newCompanyGroup" style="display:none">
+          <label>Nombre de tu nueva empresa</label>
+          <input type="text" id="loginCompany" class="form-input" placeholder="Ej: Distribuidora López">
+        </div>
       </div>
 
       <button type="submit" class="btn btn-primary" id="loginBtn">Iniciar Sesión</button>
@@ -396,8 +401,7 @@
   </div>
 </div>
 
-<!-- MODALS (Product, Category, QR) - Same structure as before -->
-<!-- PRODUCT MODAL -->
+<!-- MODALS (Product, Category, QR) -->
 <div class="modal-overlay" id="productModal">
   <div class="modal">
     <div class="modal-header"><h2 id="productModalTitle">Nuevo Producto</h2><button class="modal-close" onclick="closeModal('productModal')">&times;</button></div>
@@ -429,7 +433,6 @@
   </div>
 </div>
 
-<!-- CATEGORY MODAL -->
 <div class="modal-overlay" id="categoryModal">
   <div class="modal" style="max-width:440px">
     <div class="modal-header"><h2 id="categoryModalTitle">Nueva Categoría</h2><button class="modal-close" onclick="closeModal('categoryModal')">&times;</button></div>
@@ -455,7 +458,6 @@
   </div>
 </div>
 
-<!-- QR MODAL -->
 <div class="modal-overlay" id="qrModal">
   <div class="modal" style="max-width:400px">
     <div class="modal-header"><h2>Código QR</h2><button class="modal-close" onclick="closeModal('qrModal')">&times;</button></div>
@@ -493,29 +495,28 @@ function toggleAuthMode() {
   const toggleBtn = document.getElementById('toggleAuthBtn');
   const subtitle = document.querySelector('.login-logo p');
   const signupSection = document.getElementById('signupSection');
-  const companyField = document.getElementById('companyFieldGroup');
+  const signupFields = document.getElementById('signupFields');
 
   if (isSignupMode) {
-    if(loginBtn) { loginBtn.textContent = '📝 Crear Cuenta'; loginBtn.style.background = '#10b981'; }
-    if(subtitle) subtitle.textContent = 'Únete a una empresa o crea una nueva';
-    if(signupSection) signupSection.style.display = 'block';
-    if(companyField) { companyField.style.display = 'block'; loadCompaniesDropdown(); }
-    if(toggleBtn) toggleBtn.textContent = '🔙 Ya tengo cuenta';
+    loginBtn.textContent = '📝 Crear Cuenta'; loginBtn.style.background = '#10b981';
+    subtitle.textContent = 'Únete a una empresa o crea una nueva';
+    signupSection.style.display = 'block';
+    signupFields.style.display = 'block';
+    toggleBtn.textContent = '🔙 Ya tengo cuenta';
+    loadCompaniesDropdown();
   } else {
-    if(loginBtn) { loginBtn.textContent = 'Iniciar Sesión'; loginBtn.style.background = '#3b82f6'; }
-    if(subtitle) subtitle.textContent = 'Gestión de Inventario SaaS';
-    if(signupSection) signupSection.style.display = 'none';
-    if(companyField) companyField.style.display = 'none';
-    if(toggleBtn) toggleBtn.textContent = '🔐 Crear cuenta nueva';
+    loginBtn.textContent = 'Iniciar Sesión'; loginBtn.style.background = '#3b82f6';
+    subtitle.textContent = 'Gestión de Inventario SaaS';
+    signupSection.style.display = 'none';
+    signupFields.style.display = 'none';
+    toggleBtn.textContent = '🔐 Crear cuenta nueva';
   }
 }
 
-// ===== NUEVA FUNCIÓN: Cargar empresas en dropdown =====
+// ===== CARGAR EMPRESAS =====
 async function loadCompaniesDropdown() {
   const select = document.getElementById('companySelect');
-  // 1. Opción por defecto
   select.innerHTML = '<option value="">🏢 Selecciona una empresa...</option>';
-  // 2. Opción para crear nueva (con valor 'new' para detectarla fácil)
   select.innerHTML += '<option value="new">➕ Crear nueva empresa</option>';
   
   const { data: companies, error } = await sb.from('companies').select('id, name').order('name');
@@ -527,22 +528,22 @@ async function loadCompaniesDropdown() {
   }
 }
 
-// ===== NUEVA FUNCIÓN: Mostrar campo solo si elige "new" =====
 function toggleCompanyInput(value) {
+  const newGroup = document.getElementById('newCompanyGroup');
   const input = document.getElementById('loginCompany');
-  // Solo mostramos el input si el valor es exactamente 'new'
+  
   if (value === 'new') {
-    input.style.display = 'block';
+    newGroup.style.display = 'block';
     input.required = true;
     input.focus();
   } else {
-    input.style.display = 'none';
+    newGroup.style.display = 'none';
     input.required = false;
-    input.value = ''; // Limpiar si cambia de opinión
+    input.value = '';
   }
 }
 
-// ===== LOGIN / REGISTER LOGIC =====
+// ===== LOGIN / REGISTER =====
 async function handleLogin(e) {
   e.preventDefault();
   const email = document.getElementById('loginEmail').value;
@@ -551,32 +552,28 @@ async function handleLogin(e) {
   const errorDiv = document.getElementById('loginError');
 
   btn.disabled = true;
-  btn.textContent = 'Cargando...';
+  btn.textContent = 'Verificando...';
   errorDiv.style.display = 'none';
 
   try {
     if (isSignupMode) {
-      // === MODO CREAR CUENTA ===
       const companyId = document.getElementById('companySelect').value;
       const newCompanyName = document.getElementById('loginCompany').value.trim();
-
-      let finalCompanyId;
       
-      if (companyId) {
-        // Usuario seleccionó empresa existente
+      let finalCompanyId;
+      if (companyId && companyId !== 'new') {
         finalCompanyId = companyId;
       } else if (newCompanyName) {
-        // Usuario quiere crear nueva
-        const { data: newComp, error: createErr } = await sb.from('companies').insert([{ name: newCompanyName }]).select();
-        if (createErr) throw createErr;
+        const { data: newComp, error } = await sb.from('companies').insert([{ name: newCompanyName }]).select();
+        if (error) throw error;
         finalCompanyId = newComp[0].id;
       } else {
-        throw new Error("Selecciona una empresa existente o escribe un nombre para crear una nueva.");
+        throw new Error("Selecciona una empresa o escribe un nombre para crear una.");
       }
 
       const { data: authData, error: authErr } = await sb.auth.signUp({
         email, password,
-        options: { data: { company_id: finalCompanyId, status: 'pending', role: 'member' } }
+        options: { data: { company_id: finalCompanyId, role: 'member', status: 'pending' } }
       });
       if (authErr) throw authErr;
 
@@ -584,8 +581,8 @@ async function handleLogin(e) {
         await sb.from('company_memberships').insert([{
           user_id: authData.user.id,
           company_id: finalCompanyId,
-          status: 'pending',
-          role: 'member'
+          role: 'member',
+          status: 'pending'
         }]);
       }
 
@@ -594,12 +591,14 @@ async function handleLogin(e) {
       document.getElementById('loginForm').reset();
 
     } else {
-      // === MODO INICIAR SESIÓN ===
       const { data, error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
       
       const meta = data.user.user_metadata;
-      if (!meta || !meta.company_id) throw new Error("Este usuario no tiene una empresa asignada.");
+      if (!meta || meta.status !== 'approved') {
+        await sb.auth.signOut();
+        throw new Error("⏳ Tu cuenta está pendiente de aprobación por el administrador.");
+      }
       
       currentCompany = meta.company_id;
       currentUserRole = meta.role || 'member';
@@ -617,21 +616,20 @@ async function handleLogin(e) {
 async function checkSession() {
   const { data: { session } } = await sb.auth.getSession();
   if (session?.user) {
-    currentUser = session.user;
     const meta = session.user.user_metadata;
     
-    if (!currentCompany && meta?.company_id) {
-      currentCompany = meta.company_id;
-    }
-    if (!currentUserRole && meta?.role) {
-      currentUserRole = meta.role;
-    }
-    
-    if (!currentCompany) {
-      document.getElementById('loginError').textContent = 'Error: Usuario sin empresa. Contacta soporte.';
+    if (!meta || meta.status !== 'approved') {
+      await sb.auth.signOut();
+      document.getElementById('loginError').textContent = '⏳ Cuenta pendiente de aprobación.';
       document.getElementById('loginError').style.display = 'block';
+      document.getElementById('loginPage').style.display = 'flex';
+      document.getElementById('appPage').style.display = 'none';
       return;
     }
+
+    currentUser = session.user;
+    currentCompany = meta.company_id;
+    currentUserRole = meta.role || 'member';
 
     document.getElementById('companyDisplay').textContent = currentCompany.substring(0,8) + '...';
     document.getElementById('userName').textContent = session.user.email?.split('@')[0] || 'Usuario';
@@ -725,7 +723,7 @@ async function renderDashboard() {
     
   const actList = document.getElementById('activityList');
   actList.innerHTML = !movs.length ? '<li class="empty-state"><div class="icon">🔄</div><h3>Sin actividad</h3></li>'
-    : movs.map(m => `<li class="activity-item"><div class="activity-dot ${m.type==='entrada'?'in':'out'}"></div><div><div class="activity-text"><strong>${m.type==='entrada'?'📥 Entrada':'📤 Salida'}</strong> de ${m.qty} uds. — <strong>${m.products?.name||'Producto'}</strong></div><div class="activity-time">${formatDate(m.date)}${m.reason?' • '+m.reason:''}</div></div></li>`).join('');
+    : movs.map(m => `<li class="activity-item"><div class="activity-dot ${m.type==='entrada'?'in':'out'}"></div><div><div class="activity-text"><strong>${m.type==='entrada'?'📥 Entrada':' Salida'}</strong> de ${m.qty} uds. — <strong>${m.products?.name||'Producto'}</strong></div><div class="activity-time">${formatDate(m.date)}${m.reason?' • '+m.reason:''}</div></div></li>`).join('');
   renderCategoryChart(prods, cats);
 }
 
