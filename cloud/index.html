@@ -184,7 +184,7 @@
 <div id="loginPage" class="login-wrapper">
   <div class="login-card">
     <div class="login-logo">
-      <div class="icon">📦</div>
+      <div class="icon"></div>
       <h1>StockPro</h1>
       <p id="loginSubtitle">Gestión de Inventario SaaS</p>
     </div>
@@ -239,6 +239,7 @@
           <div class="nav-item" onclick="navigate('products')" data-page="products"><span class="nav-icon">📋</span> Productos</div>
           <div class="nav-item" onclick="navigate('categories')" data-page="categories"><span class="nav-icon">🏷️</span> Categorías</div>
           <div class="nav-item" onclick="navigate('movements')" data-page="movements"><span class="nav-icon">🔄</span> Movimientos</div>
+          <div class="nav-item" onclick="navigate('locations')" data-page="locations"><span class="nav-icon">📍</span> Ubicaciones</div>
         </div>
         <div class="nav-section">
           <div class="nav-section-title">Análisis</div>
@@ -301,12 +302,69 @@
         <!-- CATEGORIES -->
         <div id="page-categories" class="page">
           <div class="filters-bar">
-            <div class="filter-search"><span class="icon">🔍</span><input type="text" placeholder="Buscar categorías..." id="categorySearch" oninput="renderCategories()"></div>
+            <div class="filter-search"><span class="icon"></span><input type="text" placeholder="Buscar categorías..." id="categorySearch" oninput="renderCategories()"></div>
             <button class="btn btn-primary btn-sm" onclick="openCategoryModal()">+ Nueva Categoría</button>
           </div>
           <div class="card">
             <div class="table-container"><table><thead><tr><th>Color</th><th>Nombre</th><th>Productos</th><th>Acciones</th></tr></thead><tbody id="categoriesTableBody"></tbody></table></div>
             <div id="categoriesEmpty" class="empty-state" style="display:none"><div class="icon">🏷️</div><h3>No hay categorías</h3></div>
+          </div>
+        </div>
+        <!-- LOCATIONS -->
+        <div id="page-locations" class="page">
+          <div class="filters-bar">
+            <div class="filter-search">
+              <span class="icon">🔍</span>
+              <input type="text" placeholder="Buscar ubicaciones..." id="locationSearch" oninput="renderLocations()">
+            </div>
+            <select class="filter-select" id="locationTypeFilter" onchange="renderLocations()">
+              <option value="">Todos los tipos</option>
+              <option value="rack">Rack/Estantería</option>
+              <option value="shelf">Estante/Nivel</option>
+              <option value="bin">Casilla/Colmena</option>
+              <option value="zone">Zona/Área</option>
+              <option value="floor">Piso</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="openLocationModalFromMenu()">+ Nueva Ubicación</button>
+          </div>
+          <div class="stats-grid" style="margin-bottom:20px">
+            <div class="stat-card blue">
+              <div class="stat-icon">📍</div>
+              <div class="stat-label">Total Ubicaciones</div>
+              <div class="stat-value" id="totalLocations">0</div>
+            </div>
+            <div class="stat-card green">
+              <div class="stat-icon">📦</div>
+              <div class="stat-label">Con Productos</div>
+              <div class="stat-value" id="occupiedLocations">0</div>
+            </div>
+            <div class="stat-card yellow">
+              <div class="stat-icon">⭕</div>
+              <div class="stat-label">Disponibles</div>
+              <div class="stat-value" id="freeLocations">0</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Tipo</th>
+                    <th>Descripción</th>
+                    <th>Productos</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="locationsTableBody"></tbody>
+              </table>
+            </div>
+            <div id="locationsEmpty" class="empty-state" style="display:none">
+              <div class="icon">📍</div>
+              <h3>No hay ubicaciones</h3>
+              <p>Crea tu primera ubicación para comenzar a organizar el inventario</p>
+            </div>
           </div>
         </div>
         <!-- MOVEMENTS -->
@@ -316,10 +374,10 @@
             <button class="tab-btn" onclick="switchMovementTab('history',this)">Historial</button>
           </div>
           <div id="movementRegister">
-            <div class="card"><div class="card-header"><h3>🔄 Registrar Entrada / Salida</h3></div><div class="card-body">
+            <div class="card"><div class="card-header"><h3> Registrar Entrada / Salida</h3></div><div class="card-body">
               <form onsubmit="registerMovement(event)">
                 <div class="form-row">
-                  <div class="form-group"><label>Tipo</label><select id="moveType" class="form-input" required><option value="entrada">📥 Entrada</option><option value="salida">📤 Salida</option></select></div>
+                  <div class="form-group"><label>Tipo</label><select id="moveType" class="form-input" required><option value="entrada"> Entrada</option><option value="salida">📤 Salida</option></select></div>
                   <div class="form-group"><label>Producto</label><select id="moveProduct" class="form-input" required><option value="">Seleccionar...</option></select></div>
                 </div>
                 <div class="form-row">
@@ -473,9 +531,10 @@
 <!-- LOCATION MODAL -->
 <div class="modal-overlay" id="locationModal">
   <div class="modal" style="max-width:400px">
-    <div class="modal-header"><h2>📍 Nueva Ubicación</h2><button class="modal-close" onclick="closeModal('locationModal')">&times;</button></div>
+    <div class="modal-header"><h2 id="locationModalTitle">📍 Nueva Ubicación</h2><button class="modal-close" onclick="closeModal('locationModal')">&times;</button></div>
     <div class="modal-body">
       <form id="locationForm" onsubmit="saveLocation(event)">
+        <input type="hidden" id="locationId">
         <div class="form-group"><label>Código (Ej: A-01-02-B)</label><input type="text" id="locCode" required placeholder="Zona-Pasil-Rack-Nivel" style="text-transform:uppercase"></div>
         <div class="form-group"><label>Tipo</label>
           <select id="locType" class="form-input">
@@ -523,6 +582,7 @@ let currentUserRole = 'member';
 let currentPage = 'dashboard';
 let charts = {};
 let isSignupMode = false;
+let isEditingLocation = false;
 
 // ===== AUTH UI =====
 function toggleAuthMode() {
@@ -551,7 +611,7 @@ function toggleAuthMode() {
 
 async function loadCompaniesDropdown() {
   const select = document.getElementById('companySelect');
-  select.innerHTML = '<option value="">🏢 Selecciona una empresa...</option>';
+  select.innerHTML = '<option value=""> Selecciona una empresa...</option>';
   select.innerHTML += '<option value="new">➕ Crear nueva empresa</option>';
   
   const { data: companies, error } = await sb.from('companies').select('id, name').order('name');
@@ -696,7 +756,7 @@ function navigate(page) {
   document.getElementById('page-' + page).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
-  const titles = { dashboard:'Dashboard', products:'Productos', categories:'Categorías', movements:'Movimientos', reports:'Reportes', alerts:'Alertas de Stock', scanner:'Escáner QR', admin:'Panel de Administración' };
+  const titles = { dashboard:'Dashboard', products:'Productos', categories:'Categorías', movements:'Movimientos', locations:'Ubicaciones', reports:'Reportes', alerts:'Alertas de Stock', scanner:'Escáner QR', admin:'Panel de Administración' };
   document.getElementById('pageTitle').textContent = titles[page] || page;
   
   if (page === 'admin' && currentUserRole !== 'admin') {
@@ -709,6 +769,7 @@ function navigate(page) {
     case 'dashboard': renderDashboard(); break;
     case 'products': renderProducts(); break;
     case 'categories': renderCategories(); break;
+    case 'locations': renderLocations(); break;
     case 'movements': renderMovements(); populateMoveProducts(); break;
     case 'reports': renderReports(); break;
     case 'alerts': renderAlerts(); break;
@@ -751,22 +812,135 @@ async function loadLocationsDropdown() {
   }
 }
 
-function openLocationModal() { openModal('locationModal'); document.getElementById('locationForm').reset(); }
+function openLocationModal() { 
+  openModal('locationModal'); 
+  document.getElementById('locationForm').reset();
+  document.getElementById('locationId').value = '';
+  document.getElementById('locationModalTitle').textContent = '📍 Nueva Ubicación';
+  isEditingLocation = false;
+}
+
+function openLocationModalFromMenu() {
+  openModal('locationModal');
+  document.getElementById('locationForm').reset();
+  document.getElementById('locationId').value = '';
+  document.getElementById('locationModalTitle').textContent = '📍 Nueva Ubicación';
+  isEditingLocation = false;
+}
 
 async function saveLocation(e) {
   e.preventDefault();
+  const id = document.getElementById('locationId').value;
   const code = document.getElementById('locCode').value.trim().toUpperCase();
   const type = document.getElementById('locType').value;
   const desc = document.getElementById('locDesc').value.trim();
   
+  const data = { code, type, description: desc, company_id: currentCompany };
+  
   try {
-    await sb.from('locations').insert([{ code, type, description: desc, company_id: currentCompany }]);
+    if (id) {
+      await sb.from('locations').update(data).eq('id', id);
+    } else {
+      await sb.from('locations').insert([data]);
+    }
     closeModal('locationModal');
-    await loadLocationsDropdown();
-    alert('✅ Ubicación creada');
+    
+    if (currentPage === 'locations') renderLocations();
+    else await loadLocationsDropdown();
+    
+    alert('✅ Ubicación guardada');
   } catch(err) {
     alert('❌ Error: ' + (err.message.includes('unique') ? 'Este código ya existe' : err.message));
   }
+}
+
+async function renderLocations() {
+  const search = (document.getElementById('locationSearch')?.value||'').toLowerCase();
+  const typeFilter = document.getElementById('locationTypeFilter')?.value||'';
+  
+  const { data: locations } = await sb.from('locations').select('*').eq('company_id', currentCompany).eq('is_active', true);
+  const { data: products } = await sb.from('products').select('location_id').eq('company_id', currentCompany);
+  
+  window._locationsCache = locations;
+  
+  let filtered = (locations||[]).filter(l => {
+    if (search && !l.code.toLowerCase().includes(search) && !(l.description||'').toLowerCase().includes(search)) return false;
+    if (typeFilter && l.type !== typeFilter) return false;
+    return true;
+  });
+  
+  // Calcular estadísticas
+  const occupied = new Set(products?.map(p=>p.location_id).filter(Boolean)).size;
+  document.getElementById('totalLocations').textContent = locations?.length || 0;
+  document.getElementById('occupiedLocations').textContent = occupied;
+  document.getElementById('freeLocations').textContent = (locations?.length || 0) - occupied;
+  
+  const tbody = document.getElementById('locationsTableBody');
+  const empty = document.getElementById('locationsEmpty');
+  
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    tbody.innerHTML = filtered.map(l => {
+      const productCount = (products||[]).filter(p=>p.location_id===l.id).length;
+      const typeLabels = { rack:'🏭 Rack', shelf:'📚 Estante', bin:' Casilla', zone:'🌍 Zona', floor:'🏢 Piso' };
+      return `
+        <tr>
+          <td><strong>${l.code}</strong></td>
+          <td>${typeLabels[l.type]||l.type}</td>
+          <td>${l.description||'-'}</td>
+          <td>${productCount} productos</td>
+          <td><span class="badge ${productCount>0?'badge-success':'badge-warning'}">${productCount>0?'Ocupada':'Disponible'}</span></td>
+          <td>
+            <div class="actions-cell">
+              <button class="btn btn-xs btn-outline" onclick="showLocationQR('${l.id}')">📱 QR</button>
+              <button class="btn btn-xs btn-outline" onclick="editLocation('${l.id}')">️</button>
+              <button class="btn btn-xs btn-danger" onclick="deleteLocation('${l.id}')">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+}
+
+async function editLocation(id) {
+  const { data } = await sb.from('locations').select('*').eq('id',id).single();
+  if (!data) return;
+  
+  openModal('locationModal');
+  document.getElementById('locationModalTitle').textContent = '📍 Editar Ubicación';
+  document.getElementById('locationId').value = data.id;
+  document.getElementById('locCode').value = data.code;
+  document.getElementById('locType').value = data.type;
+  document.getElementById('locDesc').value = data.description || '';
+  isEditingLocation = true;
+}
+
+async function deleteLocation(id) {
+  const { data: products } = await sb.from('products').select('id').eq('location_id', id);
+  if (products?.length) {
+    alert('❌ No puedes eliminar esta ubicación porque tiene productos asignados');
+    return;
+  }
+  if (!confirm('¿Eliminar esta ubicación?')) return;
+  await sb.from('locations').delete().eq('id', id);
+  renderLocations();
+}
+
+function showLocationQR(id) {
+  const loc = window._locationsCache?.find(l=>l.id===id);
+  if (!loc) return;
+  // Generar QR simple para la ubicación
+  const qrDiv = document.getElementById('qrCode');
+  qrDiv.innerHTML = '';
+  new QRCode(qrDiv, {text: JSON.stringify({location: loc.code, type: loc.type}), width: 200, height: 200});
+  document.getElementById('qrProductName').textContent = 'Ubicación: ' + loc.code;
+  document.getElementById('qrProductSKU').textContent = loc.description || '';
+  document.getElementById('qrProductPrice').textContent = 'Tipo: ' + loc.type;
+  openModal('qrModal');
 }
 
 async function loadLocationsForMovements() {
@@ -797,7 +971,7 @@ async function renderDashboard() {
     <div class="stat-card green"><div class="stat-icon">💰</div><div class="stat-label">Valor del Stock</div><div class="stat-value">${formatCurrency(stockValue)}</div></div>
     <div class="stat-card yellow"><div class="stat-icon">⚠️</div><div class="stat-label">Stock Bajo</div><div class="stat-value">${lowStock}</div></div>
     <div class="stat-card red"><div class="stat-icon">🚫</div><div class="stat-label">Sin Stock</div><div class="stat-value">${outOfStock}</div></div>
-    <div class="stat-card purple"><div class="stat-icon">🏷️</div><div class="stat-label">Categorías</div><div class="stat-value">${cats.length}</div></div>`;
+    <div class="stat-card purple"><div class="stat-icon">️</div><div class="stat-label">Categorías</div><div class="stat-value">${cats.length}</div></div>`;
     
   const actList = document.getElementById('activityList');
   actList.innerHTML = !movs.length ? '<li class="empty-state"><div class="icon">🔄</div><h3>Sin actividad</h3></li>'
@@ -1289,7 +1463,7 @@ async function rejectUser(membershipId) {
   }
 }
 
-// ===== INIT ====
+// ===== INIT =====
 checkSession();
 </script>
 </body>
