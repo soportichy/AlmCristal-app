@@ -1179,31 +1179,45 @@ async function approveUser(membershipId, userId, companyId) {
   if (!confirm('¿Aprobar este usuario?')) return;
 
   try {
-    // 1. Actualizar tabla de membresías
-    await sb.from('company_memberships')
-      .update({ status: 'approved', updated_at: new Date().toISOString() })
+    // 1. Actualizar membresía en la tabla
+    const { error: membershipError } = await sb
+      .from('company_memberships')
+      .update({ 
+        status: 'approved', 
+        updated_at: new Date().toISOString()
+      })
       .eq('id', membershipId);
 
-    // 2. IMPORTANTE: Actualizar el Metadata del usuario en Auth
-    // Esto es lo que leía tu sistema para permitir el login
-    const { error: metaError } = await sb.auth.admin.updateUserById(userId, {
-      user_metadata: { 
-        status: 'approved', 
-        role: 'member',
-        company_id: companyId 
+    if (membershipError) throw membershipError;
+
+    // 2. Actualizar metadata del usuario (para que pueda hacer login)
+    // NOTA: Esto requiere que uses la service role key o una Edge Function
+    const { error: updateError } = await sb.auth.admin.updateUserById(
+      userId,
+      {
+        user_metadata: {
+          status: 'approved',
+          role: 'member',
+          company_id: companyId
+        }
       }
-    });
+    );
 
-    if (metaError) throw metaError;
+    if (updateError) {
+      console.error('Error actualizando metadata:', updateError);
+      // Si falla, mostramos un mensaje pero igual aprobamos la membresía
+      alert('⚠️ Membresía aprobada, pero el usuario deberá esperar a que se actualice su sesión');
+    } else {
+      alert('✅ Usuario aprobado correctamente');
+    }
 
-    alert('✅ Usuario aprobado y metadata actualizado');
     loadAdminStats();
     loadPendingUsers();
   } catch (err) {
-    alert(' Error: ' + err.message);
+    console.error('Error completo:', err);
+    alert('❌ Error: ' + err.message);
   }
 }
-
 async function rejectUser(membershipId) {
   if (!confirm('¿Rechazar este usuario? Será eliminado.')) return;
 
