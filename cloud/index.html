@@ -1179,15 +1179,28 @@ async function approveUser(membershipId, userId, companyId) {
   if (!confirm('¿Aprobar este usuario?')) return;
 
   try {
+    // 1. Actualizar tabla de membresías
     await sb.from('company_memberships')
       .update({ status: 'approved', updated_at: new Date().toISOString() })
       .eq('id', membershipId);
 
-    alert('✅ Usuario aprobado correctamente');
+    // 2. IMPORTANTE: Actualizar el Metadata del usuario en Auth
+    // Esto es lo que leía tu sistema para permitir el login
+    const { error: metaError } = await sb.auth.admin.updateUserById(userId, {
+      user_metadata: { 
+        status: 'approved', 
+        role: 'member',
+        company_id: companyId 
+      }
+    });
+
+    if (metaError) throw metaError;
+
+    alert('✅ Usuario aprobado y metadata actualizado');
     loadAdminStats();
     loadPendingUsers();
   } catch (err) {
-    alert('❌ Error: ' + err.message);
+    alert(' Error: ' + err.message);
   }
 }
 
