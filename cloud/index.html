@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StockPro SaaS - Gestión de Inventario con Ubicaciones</title>
+<title>StockPro SaaS - Gestión Multi-Empresa con Ubicaciones</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -167,6 +167,9 @@
   .color-option:hover { transform:scale(1.15); }
   .color-option.selected { border-color:white; box-shadow:0 0 0 2px var(--accent); }
   .location-badge { background:var(--purple-light); color:var(--purple); padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+  .company-item { padding:16px 20px; cursor:pointer; border-bottom:1px solid var(--border); transition:0.2s; }
+  .company-item:hover { background:var(--bg-input); }
+  .company-item.active { background:var(--accent-light); }
   @media print { .sidebar,.topbar,.btn,.filters-bar { display:none !important; } .main-content { margin-left:0 !important; } .page-content { padding:0 !important; } body { background:white; color:black; } .card { border:1px solid #ddd; } }
   .text-success { color:var(--success); } .text-danger { color:var(--danger); } .text-warning { color:var(--warning); } .text-muted { color:var(--text-muted); }
   @media (max-width:1024px) { .dashboard-grid { grid-template-columns:1fr; } }
@@ -184,9 +187,9 @@
 <div id="loginPage" class="login-wrapper">
   <div class="login-card">
     <div class="login-logo">
-      <div class="icon"></div>
+      <div class="icon">📦</div>
       <h1>StockPro</h1>
-      <p id="loginSubtitle">Gestión de Inventario SaaS</p>
+      <p id="loginSubtitle">Gestión de Inventario Multi-Empresa</p>
     </div>
     <div id="loginError" class="login-error"></div>
     <form id="loginForm" onsubmit="handleLogin(event)">
@@ -264,6 +267,9 @@
           </div>
           <button class="btn-logout" onclick="handleLogout()">🚪</button>
         </div>
+        <button class="btn btn-sm btn-outline" style="width:100%; margin-top:12px" onclick="openCompanySelector()">
+          🔄 Cambiar de Empresa
+        </button>
       </div>
     </aside>
     <main class="main-content">
@@ -302,7 +308,7 @@
         <!-- CATEGORIES -->
         <div id="page-categories" class="page">
           <div class="filters-bar">
-            <div class="filter-search"><span class="icon"></span><input type="text" placeholder="Buscar categorías..." id="categorySearch" oninput="renderCategories()"></div>
+            <div class="filter-search"><span class="icon">🔍</span><input type="text" placeholder="Buscar categorías..." id="categorySearch" oninput="renderCategories()"></div>
             <button class="btn btn-primary btn-sm" onclick="openCategoryModal()">+ Nueva Categoría</button>
           </div>
           <div class="card">
@@ -374,10 +380,10 @@
             <button class="tab-btn" onclick="switchMovementTab('history',this)">Historial</button>
           </div>
           <div id="movementRegister">
-            <div class="card"><div class="card-header"><h3> Registrar Entrada / Salida</h3></div><div class="card-body">
+            <div class="card"><div class="card-header"><h3>🔄 Registrar Entrada / Salida</h3></div><div class="card-body">
               <form onsubmit="registerMovement(event)">
                 <div class="form-row">
-                  <div class="form-group"><label>Tipo</label><select id="moveType" class="form-input" required><option value="entrada"> Entrada</option><option value="salida">📤 Salida</option></select></div>
+                  <div class="form-group"><label>Tipo</label><select id="moveType" class="form-input" required><option value="entrada">📥 Entrada</option><option value="salida">📤 Salida</option></select></div>
                   <div class="form-group"><label>Producto</label><select id="moveProduct" class="form-input" required><option value="">Seleccionar...</option></select></div>
                 </div>
                 <div class="form-row">
@@ -449,6 +455,29 @@
               <div id="noPendingUsers" class="empty-state" style="display:none"><div class="icon">✅</div><h3>No hay solicitudes pendientes</h3></div>
             </div>
           </div>
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header"><h3>👥 Asignar Usuarios a Empresas</h3></div>
+            <div class="card-body">
+              <form onsubmit="assignUserToCompany(event)" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+                <div class="form-group" style="flex:1;min-width:200px;margin:0">
+                  <label>Usuario</label>
+                  <select id="assignUserSelect" class="form-input" required><option value="">Cargando...</option></select>
+                </div>
+                <div class="form-group" style="flex:1;min-width:200px;margin:0">
+                  <label>Empresa</label>
+                  <select id="assignCompanySelect" class="form-input" required><option value="">Cargando...</option></select>
+                </div>
+                <div class="form-group" style="margin:0">
+                  <label>Rol</label>
+                  <select id="assignRoleSelect" class="form-input">
+                    <option value="member">Miembro</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-success">➕ Asignar</button>
+              </form>
+            </div>
+          </div>
           <div class="card">
             <div class="card-header"><h3>🏢 Todas las Empresas</h3></div>
             <div class="card-body">
@@ -461,6 +490,22 @@
         </div>
       </div>
     </main>
+  </div>
+</div>
+
+<!-- MODAL SELECCIÓN DE EMPRESA -->
+<div class="modal-overlay" id="companySelectModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <h2>🏢 Seleccionar Empresa</h2>
+      <span style="font-size:13px;color:var(--text-muted)">Elige el espacio de trabajo</span>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div id="companyList" style="max-height:300px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:center">
+      <button class="btn btn-outline" onclick="handleLogout()">🚪 Cerrar Sesión</button>
+    </div>
   </div>
 </div>
 
@@ -602,7 +647,7 @@ function toggleAuthMode() {
     loadCompaniesDropdown();
   } else {
     loginBtn.textContent = 'Iniciar Sesión'; loginBtn.style.background = '#3b82f6';
-    subtitle.textContent = 'Gestión de Inventario SaaS';
+    subtitle.textContent = 'Gestión de Inventario Multi-Empresa';
     signupSection.style.display = 'none';
     signupFields.style.display = 'none';
     toggleBtn.textContent = '🔐 Crear cuenta nueva';
@@ -611,7 +656,7 @@ function toggleAuthMode() {
 
 async function loadCompaniesDropdown() {
   const select = document.getElementById('companySelect');
-  select.innerHTML = '<option value=""> Selecciona una empresa...</option>';
+  select.innerHTML = '<option value="">🏢 Selecciona una empresa...</option>';
   select.innerHTML += '<option value="new">➕ Crear nueva empresa</option>';
   
   const { data: companies, error } = await sb.from('companies').select('id, name').order('name');
@@ -710,9 +755,11 @@ async function handleLogin(e) {
 
 async function checkSession() {
   const { data: { session } } = await sb.auth.getSession();
+  
   if (session?.user) {
-    const meta = session.user.user_metadata;
+    currentUser = session.user;
     
+    const meta = session.user.user_metadata;
     if (!meta || meta.status !== 'approved') {
       await sb.auth.signOut();
       document.getElementById('loginError').textContent = '⏳ Cuenta pendiente de aprobación.';
@@ -722,17 +769,17 @@ async function checkSession() {
       return;
     }
 
-    currentUser = session.user;
     currentCompany = meta.company_id;
     currentUserRole = meta.role || 'member';
 
-    document.getElementById('companyDisplay').textContent = currentCompany.substring(0,8) + '...';
     document.getElementById('userName').textContent = session.user.email?.split('@')[0] || 'Usuario';
     document.getElementById('userRole').textContent = currentUserRole === 'admin' ? 'Administrador' : 'Miembro';
     document.getElementById('userAvatar').textContent = (session.user.email?.[0] || 'U').toUpperCase();
+    document.getElementById('companyDisplay').textContent = currentCompany.substring(0,8) + '...';
     
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('appPage').style.display = 'block';
+    
     updateAlertBadge();
     navigate('dashboard');
   } else {
@@ -747,6 +794,62 @@ async function handleLogout() {
   currentCompany = null;
   currentUserRole = 'member';
   checkSession();
+}
+
+// ===== SELECTOR DE EMPRESA =====
+async function openCompanySelector() {
+  openModal('companySelectModal');
+  await loadUserCompanies();
+}
+
+async function loadUserCompanies() {
+  const listDiv = document.getElementById('companyList');
+  listDiv.innerHTML = '<div style="padding:24px;text-align:center">Cargando empresas...</div>';
+
+  try {
+    const { data: memberships, error } = await sb
+      .from('company_memberships')
+      .select(`company_id, role, status, companies (id, name)`)
+      .eq('user_id', currentUser.id)
+      .eq('status', 'approved');
+
+    if (error) throw error;
+
+    if (!memberships || memberships.length === 0) {
+      listDiv.innerHTML = '<div style="padding:24px;text-align:center">No tienes empresas asignadas.</div>';
+      return;
+    }
+
+    listDiv.innerHTML = memberships.map(m => {
+      const company = m.companies;
+      const isActive = company.id === currentCompany;
+      const badge = m.role === 'admin' ? '<span class="badge badge-warning" style="font-size:10px;margin-left:8px">Admin</span>' : '';
+      
+      return `
+        <div class="company-item ${isActive ? 'active' : ''}" onclick="selectCompany('${company.id}')">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <strong style="font-size:15px">${company.name}</strong>
+              ${badge}
+            </div>
+            ${isActive ? '<span style="color:var(--accent);font-size:20px">✅</span>' : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error(err);
+    listDiv.innerHTML = `<div style="padding:24px;text-align:center;color:var(--danger)">Error cargando empresas</div>`;
+  }
+}
+
+function selectCompany(companyId) {
+  currentCompany = companyId;
+  closeModal('companySelectModal');
+  document.getElementById('companyDisplay').textContent = companyId.substring(0,8) + '...';
+  navigate(currentPage);
+  updateAlertBadge();
 }
 
 // ===== NAVIGATION =====
@@ -869,7 +972,6 @@ async function renderLocations() {
     return true;
   });
   
-  // Calcular estadísticas
   const occupied = new Set(products?.map(p=>p.location_id).filter(Boolean)).size;
   document.getElementById('totalLocations').textContent = locations?.length || 0;
   document.getElementById('occupiedLocations').textContent = occupied;
@@ -883,9 +985,9 @@ async function renderLocations() {
     empty.style.display = 'block';
   } else {
     empty.style.display = 'none';
+    const typeLabels = { rack:'🏭 Rack', shelf:'📚 Estante', bin:'📦 Casilla', zone:'🌍 Zona', floor:'🏢 Piso' };
     tbody.innerHTML = filtered.map(l => {
       const productCount = (products||[]).filter(p=>p.location_id===l.id).length;
-      const typeLabels = { rack:'🏭 Rack', shelf:'📚 Estante', bin:' Casilla', zone:'🌍 Zona', floor:'🏢 Piso' };
       return `
         <tr>
           <td><strong>${l.code}</strong></td>
@@ -896,7 +998,7 @@ async function renderLocations() {
           <td>
             <div class="actions-cell">
               <button class="btn btn-xs btn-outline" onclick="showLocationQR('${l.id}')">📱 QR</button>
-              <button class="btn btn-xs btn-outline" onclick="editLocation('${l.id}')">️</button>
+              <button class="btn btn-xs btn-outline" onclick="editLocation('${l.id}')">✏️</button>
               <button class="btn btn-xs btn-danger" onclick="deleteLocation('${l.id}')">🗑️</button>
             </div>
           </td>
@@ -933,7 +1035,6 @@ async function deleteLocation(id) {
 function showLocationQR(id) {
   const loc = window._locationsCache?.find(l=>l.id===id);
   if (!loc) return;
-  // Generar QR simple para la ubicación
   const qrDiv = document.getElementById('qrCode');
   qrDiv.innerHTML = '';
   new QRCode(qrDiv, {text: JSON.stringify({location: loc.code, type: loc.type}), width: 200, height: 200});
@@ -971,7 +1072,7 @@ async function renderDashboard() {
     <div class="stat-card green"><div class="stat-icon">💰</div><div class="stat-label">Valor del Stock</div><div class="stat-value">${formatCurrency(stockValue)}</div></div>
     <div class="stat-card yellow"><div class="stat-icon">⚠️</div><div class="stat-label">Stock Bajo</div><div class="stat-value">${lowStock}</div></div>
     <div class="stat-card red"><div class="stat-icon">🚫</div><div class="stat-label">Sin Stock</div><div class="stat-value">${outOfStock}</div></div>
-    <div class="stat-card purple"><div class="stat-icon">️</div><div class="stat-label">Categorías</div><div class="stat-value">${cats.length}</div></div>`;
+    <div class="stat-card purple"><div class="stat-icon">🏷️</div><div class="stat-label">Categorías</div><div class="stat-value">${cats.length}</div></div>`;
     
   const actList = document.getElementById('activityList');
   actList.innerHTML = !movs.length ? '<li class="empty-state"><div class="icon">🔄</div><h3>Sin actividad</h3></li>'
@@ -1352,6 +1453,7 @@ async function renderAdminPanel() {
   await loadAdminStats();
   await loadPendingUsers();
   await loadAllCompanies();
+  await loadUsersAndCompaniesForAssignment();
 }
 
 async function loadAdminStats() {
@@ -1421,23 +1523,72 @@ async function loadAllCompanies() {
   }
 }
 
+async function loadUsersAndCompaniesForAssignment() {
+  // Cargar todos los usuarios
+  const { data: users } = await sb.from('company_memberships').select('user_id, auth_users:user_id (email)').order('auth_users(email)');
+  const userSelect = document.getElementById('assignUserSelect');
+  if (users) {
+    const uniqueUsers = [...new Map(users.map(u => [u.user_id, u.auth_users])).values()];
+    userSelect.innerHTML = '<option value="">Seleccionar usuario...</option>' + 
+      uniqueUsers.map(u => `<option value="${u.user_id}">${u.email}</option>`).join('');
+  }
+  
+  // Cargar todas las empresas
+  const { data: companies } = await sb.from('companies').select('id, name').order('name');
+  const companySelect = document.getElementById('assignCompanySelect');
+  if (companies) {
+    companySelect.innerHTML = '<option value="">Seleccionar empresa...</option>' + 
+      companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+}
+
+async function assignUserToCompany(e) {
+  e.preventDefault();
+  const userId = document.getElementById('assignUserSelect').value;
+  const companyId = document.getElementById('assignCompanySelect').value;
+  const role = document.getElementById('assignRoleSelect').value;
+  
+  if (!userId || !companyId) {
+    alert('❌ Selecciona un usuario y una empresa');
+    return;
+  }
+  
+  try {
+    // Verificar si ya existe
+    const { data: existing } = await sb.from('company_memberships').select('id').eq('user_id', userId).eq('company_id', companyId).single();
+    
+    if (existing) {
+      // Actualizar
+      await sb.from('company_memberships').update({ role, status: 'approved' }).eq('id', existing.id);
+    } else {
+      // Crear nueva
+      await sb.from('company_memberships').insert([{ user_id: userId, company_id: companyId, role, status: 'approved' }]);
+    }
+    
+    alert('✅ Usuario asignado correctamente');
+    document.getElementById('assignUserSelect').value = '';
+    document.getElementById('assignCompanySelect').value = '';
+    renderAdminPanel();
+  } catch (err) {
+    alert('❌ Error: ' + err.message);
+  }
+}
+
 async function approveUser(membershipId, userId, companyId) {
   if (!confirm('¿Aprobar este usuario?')) return;
 
   try {
-    // 1. Actualizar membresía
     await sb.from('company_memberships')
       .update({ status: 'approved', updated_at: new Date().toISOString() })
       .eq('id', membershipId);
 
-    // 2. Actualizar metadata del usuario (CRÍTICO)
     const { error: metaError } = await sb.auth.admin.updateUserById(userId, {
       user_metadata: { company_id: companyId, role: 'member', status: 'approved' }
     });
 
     if (metaError) {
       console.error('Error actualizando metadata:', metaError);
-      alert('⚠️ Membresía aprobada pero hubo error actualizando metadata. El usuario deberá esperar.');
+      alert('⚠️ Membresía aprobada pero hubo error actualizando metadata.');
     } else {
       alert('✅ Usuario aprobado correctamente');
     }
@@ -1445,7 +1596,6 @@ async function approveUser(membershipId, userId, companyId) {
     loadAdminStats();
     loadPendingUsers();
   } catch (err) {
-    console.error('Error completo:', err);
     alert('❌ Error: ' + err.message);
   }
 }
