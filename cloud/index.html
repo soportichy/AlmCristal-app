@@ -578,12 +578,25 @@ async function handleLogin(e) {
       if (authErr) throw authErr;
 
       if (authData.user) {
-        await sb.from('company_memberships').insert([{
-          user_id: authData.user.id,
-          company_id: finalCompanyId,
-          role: 'member',
-          status: 'pending'
-        }]);
+        const membershipData = {
+    user_id: authData.user.id,
+    company_id: finalCompanyId,
+    role: 'member',
+    status: 'pending'
+  };
+  
+  console.log('Creando membresía:', membershipData);
+  
+  const { data: membershipResult, error: membershipError } = 
+    await sb.from('company_memberships').insert([membershipData]);
+  
+  if (membershipError) {
+    console.error('Error creando membresía:', membershipError);
+    throw new Error('Error al crear membresía: ' + membershipError.message);
+  }
+  
+  console.log('Membresía creada:', membershipResult);
+
       }
 
       alert('✅ Cuenta creada. Un administrador debe aprobar tu acceso.');
@@ -1087,36 +1100,59 @@ async function loadAdminStats() {
 }
 
 async function loadPendingUsers() {
-  const { data: pendingUsers } = await sb
+  console.log('Cargando usuarios pendientes...');
+  
+  const { data: pendingUsers, error } = await sb
     .from('company_memberships')
-    .select(`id, status, created_at, user_id, company_id, companies ( name )`)
+    .select(`
+      id, 
+      status, 
+      created_at, 
+      user_id, 
+      company_id, 
+      companies ( name )
+    `)
     .eq('status', 'pending')
     .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error cargando pendientes:', error);
+    alert('Error al cargar solicitudes: ' + error.message);
+    return;
+  }
+
+  console.log('Usuarios pendientes encontrados:', pendingUsers);
 
   const tbody = document.getElementById('pendingUsersTable');
   const noPending = document.getElementById('noPendingUsers');
 
   if (!pendingUsers || pendingUsers.length === 0) {
+    console.log('No hay usuarios pendientes');
     tbody.innerHTML = '';
     noPending.style.display = 'block';
   } else {
+    console.log(`Mostrando ${pendingUsers.length} usuarios pendientes`);
     noPending.style.display = 'none';
-    tbody.innerHTML = pendingUsers.map(m => `
-      <tr>
-        <td>${m.user_id?.substring(0,8)}...</td>
-        <td>${m.companies?.name || 'N/A'}</td>
-        <td>${formatDate(m.created_at)}</td>
-        <td>
-          <div class="actions-cell">
-            <button class="btn btn-xs btn-success" onclick="approveUser('${m.id}', '${m.user_id}', '${m.company_id}')">✅ Aprobar</button>
-            <button class="btn btn-xs btn-danger" onclick="rejectUser('${m.id}')">❌ Rechazar</button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = pendingUsers.map(m => {
+      const userName = m.user_id ? m.user_id.substring(0, 8) + '...' : 'N/A';
+      const companyName = m.companies?.name || 'N/A';
+      
+      return `
+        <tr>
+          <td>${userName}</td>
+          <td>${companyName}</td>
+          <td>${formatDate(m.created_at)}</td>
+          <td>
+            <div class="actions-cell">
+              <button class="btn btn-xs btn-success" onclick="approveUser('${m.id}', '${m.user_id}', '${m.company_id}')">✅ Aprobar</button>
+              <button class="btn btn-xs btn-danger" onclick="rejectUser('${m.id}')">❌ Rechazar</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
   }
 }
-
 async function loadAllCompanies() {
   const { data: companies } = await sb
     .from('companies')
@@ -1159,7 +1195,7 @@ async function rejectUser(membershipId) {
   if (!confirm('¿Rechazar este usuario? Será eliminado.')) return;
 
   try {
-    await sb.from('company_memberships').delete().eq('id', membershipId);
+    await sb.from('company_memberships').delete().eq('id', membershipId);handleLogin
     alert('❌ Solicitud rechazada');
     loadAdminStats();
     loadPendingUsers();
