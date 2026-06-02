@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StockPro SaaS - Gestión de Inventario</title>
+<title>StockPro SaaS - Gestión de Inventario con Ubicaciones</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -166,6 +166,7 @@
   .color-option { width:32px; height:32px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:var(--transition); }
   .color-option:hover { transform:scale(1.15); }
   .color-option.selected { border-color:white; box-shadow:0 0 0 2px var(--accent); }
+  .location-badge { background:var(--purple-light); color:var(--purple); padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; }
   @media print { .sidebar,.topbar,.btn,.filters-bar { display:none !important; } .main-content { margin-left:0 !important; } .page-content { padding:0 !important; } body { background:white; color:black; } .card { border:1px solid #ddd; } }
   .text-success { color:var(--success); } .text-danger { color:var(--danger); } .text-warning { color:var(--warning); } .text-muted { color:var(--text-muted); }
   @media (max-width:1024px) { .dashboard-grid { grid-template-columns:1fr; } }
@@ -198,7 +199,6 @@
         <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" minlength="6" required>
       </div>
       
-      <!-- Campos de registro (solo visibles en modo registro) -->
       <div id="signupFields" style="display:none; border-top:1px solid var(--border); padding-top:16px; margin-top:16px;">
         <div class="form-group">
           <label>¿A qué empresa te unes?</label>
@@ -208,7 +208,7 @@
         </div>
         <div class="form-group" id="newCompanyGroup" style="display:none">
           <label>Nombre de tu nueva empresa</label>
-          <input type="text" id="loginCompany" class="form-input" placeholder="Ej: Distribuidora López">
+          <input type="text" id="loginCompany" class="form-input" placeholder="Ej: Mi Empresa S.A.">
         </div>
       </div>
 
@@ -289,11 +289,12 @@
           <div class="filters-bar">
             <div class="filter-search"><span class="icon">🔍</span><input type="text" placeholder="Buscar productos..." id="productSearch" oninput="renderProducts()"></div>
             <select class="filter-select" id="productCategoryFilter" onchange="renderProducts()"><option value="">Todas las categorías</option></select>
+            <select class="filter-select" id="productLocationFilter" onchange="renderProducts()"><option value="">Todas las ubicaciones</option></select>
             <select class="filter-select" id="productStatusFilter" onchange="renderProducts()"><option value="">Todos los estados</option><option value="ok">En stock</option><option value="low">Stock bajo</option><option value="out">Sin stock</option></select>
             <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ Nuevo Producto</button>
           </div>
           <div class="card">
-            <div class="table-container"><table><thead><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="productsTableBody"></tbody></table></div>
+            <div class="table-container"><table><thead><tr><th>Producto</th><th>Ubicación</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="productsTableBody"></tbody></table></div>
             <div id="productsEmpty" class="empty-state" style="display:none"><div class="icon">📦</div><h3>No hay productos</h3><p>Agrega tu primer producto para comenzar</p></div>
           </div>
         </div>
@@ -322,6 +323,10 @@
                   <div class="form-group"><label>Producto</label><select id="moveProduct" class="form-input" required><option value="">Seleccionar...</option></select></div>
                 </div>
                 <div class="form-row">
+                  <div class="form-group"><label>De Ubicación</label><select id="moveLocationFrom" class="form-input"><option value="">Sin ubicación</option></select></div>
+                  <div class="form-group"><label>A Ubicación</label><select id="moveLocationTo" class="form-input"><option value="">Sin ubicación</option></select></div>
+                </div>
+                <div class="form-row">
                   <div class="form-group"><label>Cantidad</label><input type="number" id="moveQty" min="1" class="form-input" required></div>
                   <div class="form-group"><label>Fecha</label><input type="date" id="moveDate" class="form-input" required></div>
                 </div>
@@ -337,7 +342,7 @@
               <button class="btn btn-outline btn-sm" onclick="exportMovementsCSV()">📥 Exportar CSV</button>
             </div>
             <div class="card">
-              <div class="table-container"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Cantidad</th><th>Motivo</th><th>Stock Resultante</th></tr></thead><tbody id="movementsTableBody"></tbody></table></div>
+              <div class="table-container"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>De → A</th><th>Cantidad</th><th>Motivo</th></tr></thead><tbody id="movementsTableBody"></tbody></table></div>
               <div id="movementsEmpty" class="empty-state" style="display:none"><div class="icon">🔄</div><h3>Sin movimientos</h3></div>
             </div>
           </div>
@@ -401,7 +406,7 @@
   </div>
 </div>
 
-<!-- MODALS (Product, Category, QR) -->
+<!-- PRODUCT MODAL -->
 <div class="modal-overlay" id="productModal">
   <div class="modal">
     <div class="modal-header"><h2 id="productModalTitle">Nuevo Producto</h2><button class="modal-close" onclick="closeModal('productModal')">&times;</button></div>
@@ -414,17 +419,23 @@
           <div class="form-group"><label>Categoría</label><select id="productCategory" class="form-input" required><option value="">Seleccionar...</option></select></div>
         </div>
         <div class="form-row">
+          <div class="form-group"><label>Ubicación Física</label>
+            <div style="display:flex;gap:8px">
+              <select id="productLocation" class="form-input" style="flex:1"><option value="">Sin asignar</option></select>
+              <button type="button" class="btn btn-sm btn-outline" onclick="openLocationModal()" title="Gestionar ubicaciones">📍</button>
+            </div>
+          </div>
           <div class="form-group"><label>Precio ($)</label><input type="number" id="productPrice" min="0" step="0.01" required placeholder="0.00"></div>
-          <div class="form-group"><label>Stock</label><input type="number" id="productStock" min="0" required placeholder="0"></div>
         </div>
         <div class="form-row">
+          <div class="form-group"><label>Stock</label><input type="number" id="productStock" min="0" required placeholder="0"></div>
           <div class="form-group"><label>Stock Mínimo</label><input type="number" id="productMinStock" min="0" required placeholder="5"></div>
-          <div class="form-group"><label>Imagen</label>
-            <div class="image-upload" onclick="document.getElementById('productImage').click()">
-              <div class="icon">📷</div><p>Clic para subir imagen</p>
-              <input type="file" id="productImage" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
-              <div id="imagePreview"></div>
-            </div>
+        </div>
+        <div class="form-group"><label>Imagen</label>
+          <div class="image-upload" onclick="document.getElementById('productImage').click()">
+            <div class="icon">📷</div><p>Clic para subir imagen</p>
+            <input type="file" id="productImage" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
+            <div id="imagePreview"></div>
           </div>
         </div>
       </form>
@@ -433,6 +444,7 @@
   </div>
 </div>
 
+<!-- CATEGORY MODAL -->
 <div class="modal-overlay" id="categoryModal">
   <div class="modal" style="max-width:440px">
     <div class="modal-header"><h2 id="categoryModalTitle">Nueva Categoría</h2><button class="modal-close" onclick="closeModal('categoryModal')">&times;</button></div>
@@ -458,6 +470,30 @@
   </div>
 </div>
 
+<!-- LOCATION MODAL -->
+<div class="modal-overlay" id="locationModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header"><h2>📍 Nueva Ubicación</h2><button class="modal-close" onclick="closeModal('locationModal')">&times;</button></div>
+    <div class="modal-body">
+      <form id="locationForm" onsubmit="saveLocation(event)">
+        <div class="form-group"><label>Código (Ej: A-01-02-B)</label><input type="text" id="locCode" required placeholder="Zona-Pasil-Rack-Nivel" style="text-transform:uppercase"></div>
+        <div class="form-group"><label>Tipo</label>
+          <select id="locType" class="form-input">
+            <option value="rack">Rack/Estantería</option>
+            <option value="shelf">Estante/Nivel</option>
+            <option value="bin">Casilla/Colmena</option>
+            <option value="zone">Zona/Área</option>
+            <option value="floor">Piso</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Descripción (opcional)</label><input type="text" id="locDesc" placeholder="Ej: Zona de refrigerados"></div>
+      </form>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('locationModal')">Cancelar</button><button class="btn btn-primary" style="width:auto" onclick="document.getElementById('locationForm').requestSubmit()">Guardar</button></div>
+  </div>
+</div>
+
+<!-- QR MODAL -->
 <div class="modal-overlay" id="qrModal">
   <div class="modal" style="max-width:400px">
     <div class="modal-header"><h2>Código QR</h2><button class="modal-close" onclick="closeModal('qrModal')">&times;</button></div>
@@ -513,7 +549,6 @@ function toggleAuthMode() {
   }
 }
 
-// ===== CARGAR EMPRESAS =====
 async function loadCompaniesDropdown() {
   const select = document.getElementById('companySelect');
   select.innerHTML = '<option value="">🏢 Selecciona una empresa...</option>';
@@ -568,7 +603,7 @@ async function handleLogin(e) {
         if (error) throw error;
         finalCompanyId = newComp[0].id;
       } else {
-        throw new Error("Selecciona una empresa o escribe un nombre para crear una.");
+        throw new Error("Selecciona una empresa existente o escribe un nombre para crear una nueva.");
       }
 
       const { data: authData, error: authErr } = await sb.auth.signUp({
@@ -578,25 +613,12 @@ async function handleLogin(e) {
       if (authErr) throw authErr;
 
       if (authData.user) {
-        const membershipData = {
-    user_id: authData.user.id,
-    company_id: finalCompanyId,
-    role: 'member',
-    status: 'pending'
-  };
-  
-  console.log('Creando membresía:', membershipData);
-  
-  const { data: membershipResult, error: membershipError } = 
-    await sb.from('company_memberships').insert([membershipData]);
-  
-  if (membershipError) {
-    console.error('Error creando membresía:', membershipError);
-    throw new Error('Error al crear membresía: ' + membershipError.message);
-  }
-  
-  console.log('Membresía creada:', membershipResult);
-
+        await sb.from('company_memberships').insert([{
+          user_id: authData.user.id,
+          company_id: finalCompanyId,
+          role: 'member',
+          status: 'pending'
+        }]);
       }
 
       alert('✅ Cuenta creada. Un administrador debe aprobar tu acceso.');
@@ -715,9 +737,52 @@ function getStockStatus(p) {
 function openModal(id) { document.getElementById(id).classList.add('active'); }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
+// ===== LOCATIONS =====
+async function loadLocationsDropdown() {
+  const select = document.getElementById('productLocation');
+  select.innerHTML = '<option value="">Sin asignar</option>';
+  
+  const { data: locations } = await sb.from('locations').select('id, code, type').eq('company_id', currentCompany).eq('is_active', true).order('code');
+  
+  if (locations) {
+    locations.forEach(loc => {
+      select.innerHTML += `<option value="${loc.id}">${loc.code} (${loc.type})</option>`;
+    });
+  }
+}
+
+function openLocationModal() { openModal('locationModal'); document.getElementById('locationForm').reset(); }
+
+async function saveLocation(e) {
+  e.preventDefault();
+  const code = document.getElementById('locCode').value.trim().toUpperCase();
+  const type = document.getElementById('locType').value;
+  const desc = document.getElementById('locDesc').value.trim();
+  
+  try {
+    await sb.from('locations').insert([{ code, type, description: desc, company_id: currentCompany }]);
+    closeModal('locationModal');
+    await loadLocationsDropdown();
+    alert('✅ Ubicación creada');
+  } catch(err) {
+    alert('❌ Error: ' + (err.message.includes('unique') ? 'Este código ya existe' : err.message));
+  }
+}
+
+async function loadLocationsForMovements() {
+  const { data: locations } = await sb.from('locations').select('id, code').eq('company_id', currentCompany).eq('is_active', true).order('code');
+  
+  const fromSelect = document.getElementById('moveLocationFrom');
+  const toSelect = document.getElementById('moveLocationTo');
+  const html = '<option value="">Sin ubicación</option>' + (locations||[]).map(l => `<option value="${l.id}">${l.code}</option>`).join('');
+  
+  fromSelect.innerHTML = html;
+  toSelect.innerHTML = html;
+}
+
 // ===== DASHBOARD =====
 async function renderDashboard() {
-  const { data: products } = await sb.from('products').select('*, categories(name,color)').eq('company_id', currentCompany);
+  const { data: products } = await sb.from('products').select('*, categories(name,color), locations(code)').eq('company_id', currentCompany);
   const { data: movements } = await sb.from('movements').select('*, products(name)').eq('company_id', currentCompany).order('created_at', { ascending: false }).limit(10);
   const { data: categories } = await sb.from('categories').select('*').eq('company_id', currentCompany);
   
@@ -756,22 +821,32 @@ function renderCategoryChart(products, categories) {
 async function renderProducts() {
   const search = (document.getElementById('productSearch')?.value||'').toLowerCase();
   const catFilter = document.getElementById('productCategoryFilter')?.value||'';
+  const locFilter = document.getElementById('productLocationFilter')?.value||'';
   const statusFilter = document.getElementById('productStatusFilter')?.value||'';
   
   const { data: categories } = await sb.from('categories').select('*').eq('company_id', currentCompany);
+  const { data: locations } = await sb.from('locations').select('*').eq('company_id', currentCompany).eq('is_active', true);
+  
   const catSelect = document.getElementById('productCategoryFilter');
   if (catSelect && categories) {
     const cur = catSelect.value;
     catSelect.innerHTML = '<option value="">Todas las categorías</option>' + categories.map(c=>`<option value="${c.id}" ${c.id===cur?'selected':''}>${c.name}</option>`).join('');
   }
   
-  let { data: products } = await sb.from('products').select('*, categories(name,color)').eq('company_id', currentCompany);
+  const locSelect = document.getElementById('productLocationFilter');
+  if (locSelect && locations) {
+    const cur = locSelect.value;
+    locSelect.innerHTML = '<option value="">Todas las ubicaciones</option>' + locations.map(l=>`<option value="${l.id}" ${l.id===cur?'selected':''}>${l.code}</option>`).join('');
+  }
+  
+  let { data: products } = await sb.from('products').select('*, categories(name,color), locations(code)').eq('company_id', currentCompany);
   products = products || [];
   window._productsCache = products;
   
   let filtered = products.filter(p => {
     if (search && !p.name.toLowerCase().includes(search) && !p.sku.toLowerCase().includes(search)) return false;
     if (catFilter && p.category_id !== catFilter) return false;
+    if (locFilter && p.location_id !== locFilter) return false;
     if (statusFilter && getStockStatus(p).key !== statusFilter) return false;
     return true;
   });
@@ -782,8 +857,9 @@ async function renderProducts() {
   else {
     empty.style.display='none'; tbody.parentElement.parentElement.style.display='';
     tbody.innerHTML = filtered.map(p => {
-      const cat=p.categories, status=getStockStatus(p);
+      const cat=p.categories, loc=p.locations, status=getStockStatus(p);
       return `<tr><td><div class="product-cell"><div class="product-img">${p.image_url?`<img src="${p.image_url}" alt="${p.name}">`:'📦'}</div><div><div class="product-name">${p.name}</div><div class="product-sku">${p.sku}</div></div></div></td>
+        <td>${loc?`<span class="location-badge">${loc.code}</span>`:'<span class="text-muted">-</span>'}</td>
         <td>${cat?`<span class="category-dot"><span class="dot" style="background:${cat.color}"></span>${cat.name}</span>`:'-'}</td>
         <td>${formatCurrency(p.price)}</td><td><strong>${p.stock}</strong> uds.</td>
         <td><span class="badge ${status.class}">${status.label}</span></td>
@@ -798,6 +874,8 @@ async function openProductModal(product=null) {
   document.getElementById('imagePreview').innerHTML='';
   document.getElementById('productModalTitle').textContent='Nuevo Producto';
   
+  await loadLocationsDropdown();
+  
   const { data: categories } = await sb.from('categories').select('*').eq('company_id', currentCompany);
   document.getElementById('productCategory').innerHTML = '<option value="">Seleccionar...</option>' + (categories||[]).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   
@@ -807,6 +885,7 @@ async function openProductModal(product=null) {
     document.getElementById('productName').value=product.name;
     document.getElementById('productSKU').value=product.sku;
     document.getElementById('productCategory').value=product.category_id;
+    document.getElementById('productLocation').value=product.location_id || '';
     document.getElementById('productPrice').value=product.price;
     document.getElementById('productStock').value=product.stock;
     document.getElementById('productMinStock').value=product.min_stock;
@@ -822,6 +901,7 @@ async function saveProduct(e) {
     name: document.getElementById('productName').value.trim(),
     sku: document.getElementById('productSKU').value.trim(),
     category_id: document.getElementById('productCategory').value||null,
+    location_id: document.getElementById('productLocation').value||null,
     price: parseFloat(document.getElementById('productPrice').value),
     stock: parseInt(document.getElementById('productStock').value),
     min_stock: parseInt(document.getElementById('productMinStock').value),
@@ -920,6 +1000,7 @@ async function populateMoveProducts() {
   const { data: products } = await sb.from('products').select('id,name,stock').eq('company_id', currentCompany);
   document.getElementById('moveProduct').innerHTML='<option value="">Seleccionar...</option>'+(products||[]).map(p=>`<option value="${p.id}">${p.name} (Stock: ${p.stock})</option>`).join('');
   document.getElementById('moveDate').value=new Date().toISOString().split('T')[0];
+  await loadLocationsForMovements();
 }
 
 async function registerMovement(e) {
@@ -927,14 +1008,22 @@ async function registerMovement(e) {
   const type=document.getElementById('moveType').value, productId=document.getElementById('moveProduct').value;
   const qty=parseInt(document.getElementById('moveQty').value), date=document.getElementById('moveDate').value;
   const reason=document.getElementById('moveReason').value.trim(), btn=document.getElementById('moveBtn');
+  const locFrom=document.getElementById('moveLocationFrom').value||null;
+  const locTo=document.getElementById('moveLocationTo').value||null;
+  
   const { data: product } = await sb.from('products').select('*').eq('id',productId).single();
   if (!product) { alert('Selecciona un producto'); return; }
   if (type==='salida' && qty>product.stock) { alert(`Stock insuficiente. Stock actual: ${product.stock}`); return; }
+  
   btn.disabled=true; btn.textContent='Guardando...';
   try {
     const newStock=type==='entrada'?product.stock+qty:product.stock-qty;
     await sb.from('products').update({stock:newStock}).eq('id',productId);
-    await sb.from('movements').insert([{type,product_id:productId,qty,reason,date,stock_after:newStock,company_id:currentCompany}]);
+    await sb.from('movements').insert([{
+      type, product_id:productId, qty, reason, date, 
+      stock_after:newStock, company_id:currentCompany,
+      location_from_id: locFrom, location_to_id: locTo
+    }]);
     document.getElementById('moveQty').value=''; document.getElementById('moveReason').value='';
     populateMoveProducts(); updateAlertBadge();
     alert(`✅ ${type==='entrada'?'Entrada':'Salida'} registrada`);
@@ -945,7 +1034,7 @@ async function registerMovement(e) {
 async function renderMovements() {
   const search=(document.getElementById('historySearch')?.value||'').toLowerCase();
   const typeFilter=document.getElementById('historyTypeFilter')?.value||'';
-  let { data: movements } = await sb.from('movements').select('*,products(name)').eq('company_id', currentCompany).order('created_at',{ascending:false});
+  let { data: movements } = await sb.from('movements').select('*,products(name),locations_from:location_from_id(code),locations_to:location_to_id(code)').eq('company_id', currentCompany).order('created_at',{ascending:false});
   movements=movements||[];
   window._movementsCache=movements;
   let filtered=movements.filter(m=>{
@@ -957,7 +1046,11 @@ async function renderMovements() {
   if (!filtered.length) { tbody.innerHTML=''; empty.style.display='block'; tbody.parentElement.parentElement.style.display='none'; }
   else {
     empty.style.display='none'; tbody.parentElement.parentElement.style.display='';
-    tbody.innerHTML=filtered.map(m=>`<tr><td>${formatDate(m.date)}</td><td><span class="move-type-badge ${m.type}">${m.type==='entrada'?'📥 Entrada':'📤 Salida'}</span></td><td>${m.products?.name||'<em>Eliminado</em>'}</td><td><strong>${m.type==='entrada'?'+':'-'}${m.qty}</strong></td><td>${m.reason||'-'}</td><td>${m.stock_after}</td></tr>`).join('');
+    tbody.innerHTML=filtered.map(m=>{
+      const from = m.locations_from?.code || '-';
+      const to = m.locations_to?.code || '-';
+      return `<tr><td>${formatDate(m.date)}</td><td><span class="move-type-badge ${m.type}">${m.type==='entrada'?'📥 Entrada':' Salida'}</span></td><td>${m.products?.name||'<em>Eliminado</em>'}</td><td>${from} → ${to}</td><td><strong>${m.type==='entrada'?'+':'-'}${m.qty}</strong></td><td>${m.reason||'-'}</td></tr>`;
+    }).join('');
   }
 }
 
@@ -970,15 +1063,15 @@ async function updateAlertBadge() {
 }
 
 async function renderAlerts() {
-  const { data: products } = await sb.from('products').select('*,categories(name)').eq('company_id', currentCompany);
+  const { data: products } = await sb.from('products').select('*,categories(name),locations(code)').eq('company_id', currentCompany);
   const alerts=(products||[]).filter(p=>(p.stock||0)<=(p.min_stock||5));
   const list=document.getElementById('alertsList'), empty=document.getElementById('alertsEmpty');
   if (!alerts.length) { list.innerHTML=''; empty.style.display='block'; }
   else {
     empty.style.display='none';
     list.innerHTML=alerts.map(p=>{
-      const cat=p.categories, pct=p.min_stock>0?Math.min((p.stock/(p.min_stock*2))*100,100):0;
-      return `<div class="alert-item"><div class="alert-icon">⚠️</div><div class="alert-info"><div class="alert-name">${p.name}</div><div class="alert-detail">SKU: ${p.sku} ${cat?'• '+cat.name:''} • Stock: <strong>${p.stock}</strong> / Mínimo: ${p.min_stock}</div><div class="stock-bar"><div class="stock-bar-fill" style="width:${pct}%;background:${p.stock===0?'var(--danger)':'var(--warning)'}"></div></div></div><button class="btn btn-xs btn-success" onclick="quickRestock('${p.id}')">Reabastecer</button></div>`;
+      const cat=p.categories, loc=p.locations, pct=p.min_stock>0?Math.min((p.stock/(p.min_stock*2))*100,100):0;
+      return `<div class="alert-item"><div class="alert-icon">⚠️</div><div class="alert-info"><div class="alert-name">${p.name}</div><div class="alert-detail">SKU: ${p.sku} ${cat?'• '+cat.name:''} ${loc?'• 📍'+loc.code:''} • Stock: <strong>${p.stock}</strong> / Mínimo: ${p.min_stock}</div><div class="stock-bar"><div class="stock-bar-fill" style="width:${pct}%;background:${p.stock===0?'var(--danger)':'var(--warning)'}"></div></div></div><button class="btn btn-xs btn-success" onclick="quickRestock('${p.id}')">Reabastecer</button></div>`;
     }).join('');
   }
 }
@@ -1060,15 +1153,15 @@ async function renderReports() {
 function exportProductsCSV() {
   const products=window._productsCache||[];
   if (!products.length) { alert('No hay productos'); return; }
-  let csv='Nombre,SKU,Categoría,Precio,Stock,Stock Mínimo,Estado\n';
-  products.forEach(p=>{const cat=p.categories,status=getStockStatus(p);csv+=`"${p.name}","${p.sku}","${cat?.name||''}",${p.price},${p.stock},${p.min_stock},"${status.label}"\n`;});
+  let csv='Nombre,SKU,Ubicación,Categoría,Precio,Stock,Stock Mínimo,Estado\n';
+  products.forEach(p=>{const cat=p.categories,loc=p.locations,status=getStockStatus(p);csv+=`"${p.name}","${p.sku}","${loc?.code||''}","${cat?.name||''}",${p.price},${p.stock},${p.min_stock},"${status.label}"\n`;});
   downloadCSV(csv,'productos_'+new Date().toISOString().split('T')[0]+'.csv');
 }
 function exportMovementsCSV() {
   const movements=window._movementsCache||[];
   if (!movements.length) { alert('No hay movimientos'); return; }
-  let csv='Fecha,Tipo,Producto,Cantidad,Motivo,Stock Resultante\n';
-  movements.forEach(m=>{const p=(window._productsCache||[]).find(x=>x.id===m.product_id);csv+=`"${formatDate(m.date)}","${m.type}","${p?.name||'Eliminado'}",${m.qty},"${m.reason||''}",${m.stock_after}\n`;});
+  let csv='Fecha,Tipo,Producto,De Ubicación,A Ubicación,Cantidad,Motivo,Stock Resultante\n';
+  movements.forEach(m=>{const p=(window._productsCache||[]).find(x=>x.id===m.product_id);csv+=`"${formatDate(m.date)}","${m.type}","${p?.name||'Eliminado'}","${m.locations_from?.code||''}","${m.locations_to?.code||''}",${m.qty},"${m.reason||''}",${m.stock_after}\n`;});
   downloadCSV(csv,'movimientos_'+new Date().toISOString().split('T')[0]+'.csv');
 }
 function downloadCSV(csv,filename) {
@@ -1100,59 +1193,38 @@ async function loadAdminStats() {
 }
 
 async function loadPendingUsers() {
-  console.log('Cargando usuarios pendientes...');
-  
   const { data: pendingUsers, error } = await sb
     .from('company_memberships')
-    .select(`
-      id, 
-      status, 
-      created_at, 
-      user_id, 
-      company_id, 
-      companies ( name )
-    `)
+    .select(`id, status, created_at, user_id, company_id, companies ( name )`)
     .eq('status', 'pending')
     .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Error cargando pendientes:', error);
-    alert('Error al cargar solicitudes: ' + error.message);
-    return;
-  }
-
-  console.log('Usuarios pendientes encontrados:', pendingUsers);
+  if (error) { console.error('Error cargando pendientes:', error); return; }
 
   const tbody = document.getElementById('pendingUsersTable');
   const noPending = document.getElementById('noPendingUsers');
 
   if (!pendingUsers || pendingUsers.length === 0) {
-    console.log('No hay usuarios pendientes');
     tbody.innerHTML = '';
     noPending.style.display = 'block';
   } else {
-    console.log(`Mostrando ${pendingUsers.length} usuarios pendientes`);
     noPending.style.display = 'none';
-    tbody.innerHTML = pendingUsers.map(m => {
-      const userName = m.user_id ? m.user_id.substring(0, 8) + '...' : 'N/A';
-      const companyName = m.companies?.name || 'N/A';
-      
-      return `
-        <tr>
-          <td>${userName}</td>
-          <td>${companyName}</td>
-          <td>${formatDate(m.created_at)}</td>
-          <td>
-            <div class="actions-cell">
-              <button class="btn btn-xs btn-success" onclick="approveUser('${m.id}', '${m.user_id}', '${m.company_id}')">✅ Aprobar</button>
-              <button class="btn btn-xs btn-danger" onclick="rejectUser('${m.id}')">❌ Rechazar</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
+    tbody.innerHTML = pendingUsers.map(m => `
+      <tr>
+        <td>${m.user_id?.substring(0,8)}...</td>
+        <td>${m.companies?.name || 'N/A'}</td>
+        <td>${formatDate(m.created_at)}</td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn btn-xs btn-success" onclick="approveUser('${m.id}', '${m.user_id}', '${m.company_id}')">✅ Aprobar</button>
+            <button class="btn btn-xs btn-danger" onclick="rejectUser('${m.id}')">❌ Rechazar</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
   }
 }
+
 async function loadAllCompanies() {
   const { data: companies } = await sb
     .from('companies')
@@ -1179,34 +1251,19 @@ async function approveUser(membershipId, userId, companyId) {
   if (!confirm('¿Aprobar este usuario?')) return;
 
   try {
-    // 1. Actualizar membresía en la tabla
-    const { error: membershipError } = await sb
-      .from('company_memberships')
-      .update({ 
-        status: 'approved', 
-        updated_at: new Date().toISOString()
-      })
+    // 1. Actualizar membresía
+    await sb.from('company_memberships')
+      .update({ status: 'approved', updated_at: new Date().toISOString() })
       .eq('id', membershipId);
 
-    if (membershipError) throw membershipError;
+    // 2. Actualizar metadata del usuario (CRÍTICO)
+    const { error: metaError } = await sb.auth.admin.updateUserById(userId, {
+      user_metadata: { company_id: companyId, role: 'member', status: 'approved' }
+    });
 
-    // 2. Actualizar metadata del usuario (para que pueda hacer login)
-    // NOTA: Esto requiere que uses la service role key o una Edge Function
-    const { error: updateError } = await sb.auth.admin.updateUserById(
-      userId,
-      {
-        user_metadata: {
-          status: 'approved',
-          role: 'member',
-          company_id: companyId
-        }
-      }
-    );
-
-    if (updateError) {
-      console.error('Error actualizando metadata:', updateError);
-      // Si falla, mostramos un mensaje pero igual aprobamos la membresía
-      alert('⚠️ Membresía aprobada, pero el usuario deberá esperar a que se actualice su sesión');
+    if (metaError) {
+      console.error('Error actualizando metadata:', metaError);
+      alert('⚠️ Membresía aprobada pero hubo error actualizando metadata. El usuario deberá esperar.');
     } else {
       alert('✅ Usuario aprobado correctamente');
     }
@@ -1218,11 +1275,12 @@ async function approveUser(membershipId, userId, companyId) {
     alert('❌ Error: ' + err.message);
   }
 }
+
 async function rejectUser(membershipId) {
   if (!confirm('¿Rechazar este usuario? Será eliminado.')) return;
 
   try {
-    await sb.from('company_memberships').delete().eq('id', membershipId);handleLogin
+    await sb.from('company_memberships').delete().eq('id', membershipId);
     alert('❌ Solicitud rechazada');
     loadAdminStats();
     loadPendingUsers();
